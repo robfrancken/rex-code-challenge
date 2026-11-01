@@ -32,6 +32,8 @@ With more time I'd add:
 - CI that runs linting and the tests;
 - parallel testing;
 - more of the Claude setup in `.claude/`;
+- more time on review and verification;
+- a QA skill that writes clear QA instructions for each change;
 - an external API with token auth;
 - team-level authorisation;
 - a real telephony adapter;
