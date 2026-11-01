@@ -29,7 +29,8 @@ With more time I'd add:
 - an external API with token auth;
 - team-level authorisation;
 - a real telephony adapter;
-- route-level code splitting in the SPA.
+- route-level code splitting in the SPA;
+- smaller, stacked PRs instead of one large one, so each is easier to review.
 
 ## Running it
 
