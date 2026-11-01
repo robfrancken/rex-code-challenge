@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Contacts\Application\Validation;
 
+use App\Modules\Contacts\Application\Search\SearchTerms;
 use App\Modules\Contacts\Application\Validation\Rules\ValidContactCursor;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -24,7 +25,7 @@ final class SearchContactsValidator
         $validated = Validator::make($input, [
             'q' => ['nullable', 'string', 'max:255'],
             'name' => ['nullable', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:25', 'regex:/^\+?[\s\-(]*[0-9][0-9\s\-()]*$/'],
+            'phone' => ['nullable', 'string', 'max:25', 'regex:'.SearchTerms::PHONE_PATTERN],
             'email_domain' => ['nullable', 'string', 'max:253'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
             'cursor' => ['nullable', 'string', 'max:2048', new ValidContactCursor],

@@ -69,6 +69,47 @@ it('finds a one character name by prefix', function (): void {
     expect(searchedNames(name: 'j'))->toBe(['Jane Smith']);
 })->group('fulltext');
 
+it('finds a name by a substring that contains a one character word', function (
+    string $name,
+    string $term,
+): void {
+    contactNamed($name);
+    contactNamed('Chloe Jones');
+    contactNamed('Jane Smith');
+
+    expect(searchedNames(name: $term))->toBe([$name])
+        ->and(searchedNames(q: $term))->toBe([$name]);
+})->with([
+    'trailing initial' => ['Chloe Smith', 'chloe s'],
+    'leading initial' => ['J Smith', 'j smith'],
+    'end of a first name' => ['Zoe Smithers', 'e smithe'],
+    'apostrophe' => ["Allene O'Reilly", "o'reilly"],
+    'apostrophe after an initial' => ["Gina D'Angelo", "d'angelo"],
+    'initial after a surname' => ['Ivy Lehner Ingram', 'lehner i'],
+])->group('fulltext');
+
+it('matches a typed separator against a hyphen or a space', function (): void {
+    contactNamed('Mary-Jane Watson');
+    contactNamed('Mary Jane Kelly');
+    contactNamed('Maryjane Ortiz');
+
+    expect(searchedNames(name: 'mary-jane'))->toBe(['Mary Jane Kelly', 'Mary-Jane Watson'])
+        ->and(searchedNames(name: 'Mary-Jane Watson'))->toBe(['Mary-Jane Watson']);
+})->group('fulltext');
+
+it('falls back to a name prefix when no word has two characters', function (
+    string $term,
+    string $name,
+): void {
+    contactNamed($name);
+    contactNamed('Bob Brown');
+
+    expect(searchedNames(name: $term))->toBe([$name]);
+})->with([
+    'apostrophe' => ["o'", "O'Reilly"],
+    'two initials' => ['a b', 'A B Smith'],
+])->group('fulltext');
+
 it('finds a phone by a fragment of its digits', function (string $term): void {
     contactNamed('Match', phone: '+61412345678');
     contactNamed('Other', phone: '+61498765432');
@@ -92,6 +133,14 @@ it('searches phones with q', function (): void {
     contactNamed('Other', phone: '+61498765432');
 
     expect(searchedNames(q: '0412 345'))->toBe(['Match']);
+})->group('fulltext');
+
+it('leaves phones out of q when q does not look like a phone number', function (): void {
+    contactNamed('Acme 2024');
+    contactNamed('Other', phone: '+61420241234');
+
+    expect(searchedNames(q: 'acme 2024'))->toBe(['Acme 2024'])
+        ->and(searchedNames(q: '2024'))->toBe(['Acme 2024', 'Other']);
 })->group('fulltext');
 
 it('matches the explicit email domain exactly', function (): void {

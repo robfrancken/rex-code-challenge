@@ -18,9 +18,10 @@ final class ContactSearchQuery
     private const string LIKE_ESCAPE = '!';
 
     /**
-     * q is the distinct union of the branches that apply, joined as a derived table so the small match
-     * set drives the query. As IN (union) MySQL either scans contacts and probes the matches per row or
-     * plans a dependent subquery, which evaluates MATCH per row and returns wrong rows.
+     * Each FULLTEXT match set (q, name, phone) is a distinct derived table joined on the contact id, so
+     * the small match sets drive the query. As IN subqueries MySQL either scans contacts and probes the
+     * matches per row, or plans a dependent subquery or a FirstMatch semijoin, which evaluates MATCH per
+     * row and drops rows. The exact email domain is a B-tree lookup and stays a semijoin.
      *
      * @param  Builder<Contact>  $contacts
      * @return Builder<Contact>
@@ -32,39 +33,57 @@ final class ContactSearchQuery
         ?string $phone,
         ?string $emailDomain,
     ): Builder {
-        $branches = $q === null ? [] : array_values(array_filter([
-            $this->nameBranch($q),
-            $this->phoneBranch($q),
-            $this->domainPrefixBranch($q),
-        ]));
+        $matchSets = array_filter([
+            'search_matches' => $q === null ? null : $this->searchBranches($q),
+            'name_matches' => $name === null ? null : $this->nameBranch($name),
+            'phone_matches' => $phone === null ? null : $this->phoneBranch($phone),
+        ]);
 
-        if ($branches !== []) {
-            $union = array_shift($branches);
-
-            foreach ($branches as $branch) {
-                $union->union($branch);
-            }
-
-            $contacts
-                ->select('contacts.*')
-                ->joinSub($union, 'search_matches', 'search_matches.contact_id', '=', 'contacts.id');
+        if ($matchSets !== []) {
+            $contacts->select('contacts.*');
         }
 
-        $filters = [
-            $name === null ? null : $this->nameBranch($name),
-            $phone === null ? null : $this->phoneBranch($phone),
-            $emailDomain === null ? null : $this->domainExactBranch($emailDomain),
-        ];
+        foreach ($matchSets as $alias => $matches) {
+            $contacts->joinSub($matches->distinct(), $alias, "{$alias}.contact_id", '=', 'contacts.id');
+        }
 
-        foreach (array_filter($filters) as $filter) {
-            $contacts->whereIn('contacts.id', $filter);
+        if ($emailDomain !== null) {
+            $contacts->whereIn('contacts.id', $this->domainExactBranch($emailDomain));
         }
 
         return $contacts;
     }
 
     /**
-     * Contact ids by name: a FULLTEXT phrase, or a prefix match when no word has two characters.
+     * The union of the q branches that apply, or null when nothing in q is searchable. The phone branch
+     * only applies when q reads as a phone number, so "acme 2024" does not match phones containing 2024.
+     */
+    private function searchBranches(string $q): ?QueryBuilder
+    {
+        $branches = array_values(array_filter([
+            $this->nameBranch($q),
+            SearchTerms::looksLikePhone($q) ? $this->phoneBranch($q) : null,
+            $this->domainPrefixBranch($q),
+        ]));
+
+        if ($branches === []) {
+            return null;
+        }
+
+        $union = array_shift($branches);
+
+        foreach ($branches as $branch) {
+            $union->union($branch);
+        }
+
+        return $union;
+    }
+
+    /**
+     * Contact ids whose name contains the cleaned text, or starts with it when no word has two characters.
+     * The FULLTEXT query finds the candidates through the index; the LIKE over those candidates restores
+     * the exact substring, including any one-character word ngram cannot match. In that LIKE a space in
+     * the cleaned text stands for any one separator, so "mary-jane" still finds "Mary-Jane".
      */
     public function nameBranch(string $raw): ?QueryBuilder
     {
@@ -75,12 +94,17 @@ final class ContactSearchQuery
         }
 
         $branch = Contact::query()->select('contacts.id as contact_id')->toBase();
+        $fullText = SearchTerms::nameFullTextQuery($cleaned);
 
-        if (SearchTerms::isFullTextName($cleaned)) {
-            return $branch->whereFullText('contacts.name', '"'.$cleaned.'"', ['mode' => 'boolean']);
+        if ($fullText === null) {
+            return $branch->whereRaw('contacts.name like ? escape ?', [$this->escapeLike($cleaned).'%', self::LIKE_ESCAPE]);
         }
 
-        return $branch->whereRaw('contacts.name like ? escape ?', [$this->escapeLike($cleaned).'%', self::LIKE_ESCAPE]);
+        $separatorsAsWildcards = str_replace(' ', '_', $this->escapeLike($cleaned));
+
+        return $branch
+            ->whereFullText('contacts.name', $fullText, ['mode' => 'boolean'])
+            ->whereRaw('contacts.name like ? escape ?', ['%'.$separatorsAsWildcards.'%', self::LIKE_ESCAPE]);
     }
 
     /**

@@ -17,17 +17,40 @@ it('cleans a name', function (
     'only operators' => ['+-<>()~*"@', ''],
 ]);
 
-it('decides whether a cleaned name can use fulltext', function (
+it('builds the fulltext query from the words ngram can index', function (
     string $cleaned,
+    ?string $expected,
+): void {
+    expect(SearchTerms::nameFullTextQuery($cleaned))->toBe($expected);
+})->with([
+    'single characters' => ['a b', null],
+    'two characters' => ['jo', '+"jo"'],
+    'adjacent words as one phrase' => ['mary jane', '+"mary jane"'],
+    'trailing initial dropped' => ['chloe s', '+"chloe"'],
+    'leading initial dropped' => ['e smith', '+"smith"'],
+    'apostrophe splits like ngram' => ["o'reilly", '+"reilly"'],
+    'apostrophe only' => ["o'", null],
+    'ascii punctuation joins a phrase' => ['jean.luc', '+"jean luc"'],
+    'underscore stays in the word' => ['smith_jones', '+"smith_jones"'],
+    'initial between words splits the phrase' => ['a bc d ef', '+"bc" +"ef"'],
+    'multibyte pair' => ['éa', '+"éa"'],
+    'accented words' => ['josé ortiz', '+"josé ortiz"'],
+    'empty' => ['', null],
+]);
+
+it('accepts q as a phone only when it looks like one', function (
+    string $q,
     bool $expected,
 ): void {
-    expect(SearchTerms::isFullTextName($cleaned))->toBe($expected);
+    expect(SearchTerms::looksLikePhone($q))->toBe($expected);
 })->with([
-    'single characters' => ['a b', false],
-    'two characters' => ['jo', true],
-    'one long word' => ['a bc', true],
-    'multibyte pair' => ['éa', true],
-    'empty' => ['', false],
+    'local format' => ['0412 345', true],
+    'international' => ['+61 412', true],
+    'padded' => ['  0412  ', true],
+    'brackets' => ['(02) 9876', true],
+    'one digit' => ['5', false],
+    'words and digits' => ['acme 2024', false],
+    'name' => ['smith', false],
 ]);
 
 it('reduces a phone to searchable digits', function (

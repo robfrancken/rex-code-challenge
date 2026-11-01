@@ -59,7 +59,7 @@ it('plans the q union without dependent subqueries', function (): void {
 })->group('fulltext');
 
 it('drives the q search from the match set, not a scan of contacts', function (): void {
-    new BulkContactSeeder()->run(500);
+    new BulkContactSeeder()->run(25);
     DB::statement('analyze table contacts, contact_emails, contact_phones');
 
     $sql = new ContactSearchQuery()
@@ -75,4 +75,22 @@ it('drives the q search from the match set, not a scan of contacts', function ()
     expect($contacts->type)->not->toBe('ALL')
         ->and($contacts->key)->toBe('PRIMARY')
         ->and($plan->pluck('select_type')->all())->not->toContain('DEPENDENT SUBQUERY', 'DEPENDENT UNION');
+})->group('fulltext');
+
+it('joins the explicit fulltext filters as derived tables, never a semijoin', function (): void {
+    new BulkContactSeeder()->run(25);
+    DB::statement('analyze table contacts, contact_emails, contact_phones');
+
+    $sql = new ContactSearchQuery()
+        ->apply(Contact::query(), null, 'an', '61', null)
+        ->orderBy('name')
+        ->orderBy('id')
+        ->limit(26)
+        ->toRawSql();
+
+    $plan = collect(DB::select('explain '.$sql));
+
+    expect($plan->where('select_type', 'DERIVED'))->toHaveCount(2)
+        ->and($plan->pluck('select_type')->all())->not->toContain('DEPENDENT SUBQUERY')
+        ->and($plan->pluck('Extra')->implode(' '))->not->toContain('FirstMatch');
 })->group('fulltext');

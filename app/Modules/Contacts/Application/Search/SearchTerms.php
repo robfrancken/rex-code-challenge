@@ -7,6 +7,17 @@ namespace App\Modules\Contacts\Application\Search;
 final class SearchTerms
 {
     /**
+     * The loose shape of a typed phone number: an optional +, then digits, spaces, dashes and brackets.
+     */
+    public const string PHONE_PATTERN = '/^\+?[\s\-(]*[0-9][0-9\s\-()]*$/';
+
+    /**
+     * Where the ngram parser breaks words: whitespace and every ASCII character outside [A-Za-z0-9_].
+     * Non-ASCII characters always stay inside a word.
+     */
+    private const string NGRAM_WORD_BREAK = '/[\x00-\x2F\x3A-\x40\x5B-\x5E\x60\x7B-\x7F]+/u';
+
+    /**
      * Replaces the boolean-mode operators with spaces so search text is only ever text.
      */
     public static function cleanName(string $raw): string
@@ -17,17 +28,42 @@ final class SearchTerms
     }
 
     /**
-     * FULLTEXT (ngram, size 2) cannot match a word shorter than two characters.
+     * The boolean-mode FULLTEXT query over the words ngram (size 2) can match, or null when no word
+     * has two characters. A one-character word cannot be matched, even inside a phrase, so it is
+     * left out and splits the phrase: each run of adjacent longer words becomes one required phrase.
      */
-    public static function isFullTextName(string $cleaned): bool
+    public static function nameFullTextQuery(string $cleaned): ?string
     {
-        foreach (explode(' ', $cleaned) as $word) {
+        $phrases = [];
+        $run = [];
+
+        foreach (preg_split(self::NGRAM_WORD_BREAK, $cleaned, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $word) {
             if (mb_strlen($word) >= 2) {
-                return true;
+                $run[] = $word;
+
+                continue;
             }
+
+            $phrases[] = $run;
+            $run = [];
         }
 
-        return false;
+        $phrases[] = $run;
+
+        $required = array_map(
+            fn (array $words): string => '+"'.implode(' ', $words).'"',
+            array_filter($phrases),
+        );
+
+        return $required === [] ? null : implode(' ', $required);
+    }
+
+    /**
+     * Whether free text reads as a phone number: the loose phone shape with at least two digits to search.
+     */
+    public static function looksLikePhone(string $raw): bool
+    {
+        return preg_match(self::PHONE_PATTERN, trim($raw)) === 1 && self::phoneDigits($raw) !== null;
     }
 
     /**

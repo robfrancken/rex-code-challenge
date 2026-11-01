@@ -8,6 +8,8 @@ use App\Modules\Contacts\Application\Validation\SearchContactsValidator;
 use Database\Factories\Contacts\ContactEmailFactory;
 use Database\Factories\Contacts\ContactFactory;
 use Database\Factories\Contacts\ContactPhoneFactory;
+use Database\Seeders\BulkContactSeeder;
+use Illuminate\Support\Facades\DB;
 
 function searchData(
     ?string $q = null,
@@ -122,3 +124,72 @@ it('loads emails and phones for the page', function (): void {
     expect($page->items()[0]->relationLoaded('emails'))->toBeTrue()
         ->and($page->items()[0]->relationLoaded('phones'))->toBeTrue();
 });
+
+/**
+ * Every contact id the search returns, following the cursor through every page, sorted.
+ *
+ * @param  array{q?: string, name?: string, phone?: string, email_domain?: string}  $filters
+ * @return list<string>
+ */
+function everySearchedId(array $filters): array
+{
+    $ids = [];
+    $cursor = null;
+
+    do {
+        $page = app(SearchContacts::class)->handle(SearchContactsData::fromValidated([
+            ...$filters,
+            'cursor' => $cursor,
+        ]));
+        array_push($ids, ...$page->getCollection()->pluck('id')->all());
+        $cursor = $page->nextCursor()?->encode();
+    } while ($cursor !== null);
+
+    sort($ids);
+
+    return $ids;
+}
+
+it('returns exactly the contacts a plain LIKE and EXISTS query finds', function (): void {
+    new BulkContactSeeder()->run(100);
+    DB::statement('analyze table contacts, contact_emails, contact_phones');
+
+    $hasPhone61 = "exists (select 1 from contact_phones p where p.contact_id = contacts.id and p.phone like '%61%')";
+    $combinations = [
+        'name and phone' => [
+            [
+                'name' => 'an',
+                'phone' => '61',
+            ],
+            "name like '%an%' and {$hasPhone61}",
+        ],
+        'q and phone' => [
+            [
+                'q' => 'gmail',
+                'phone' => '61',
+            ],
+            "(name like '%gmail%' or exists (select 1 from contact_emails e where e.contact_id = contacts.id and e.domain like 'gmail%')) and {$hasPhone61}",
+        ],
+        'name and email domain' => [
+            [
+                'name' => 'an',
+                'email_domain' => 'gmail.com',
+            ],
+            "name like '%an%' and exists (select 1 from contact_emails e where e.contact_id = contacts.id and e.domain = 'gmail.com')",
+        ],
+        'q and name' => [
+            [
+                'q' => 'rex',
+                'name' => 'an',
+            ],
+            "(name like '%rex%' or exists (select 1 from contact_emails e where e.contact_id = contacts.id and e.domain like 'rex%')) and name like '%an%'",
+        ],
+    ];
+
+    foreach ($combinations as $label => [$filters, $condition]) {
+        $expected = DB::table('contacts')->whereRaw($condition)->pluck('id')->sort()->values()->all();
+
+        expect($expected)->not->toBeEmpty($label)
+            ->and(everySearchedId($filters))->toBe($expected, $label);
+    }
+})->group('fulltext');
