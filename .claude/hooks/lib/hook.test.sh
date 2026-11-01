@@ -88,4 +88,16 @@ edit_json="$(edit_input Edit /x/y.php PostToolUse)"
 expect_equals 'edit_input path' '/x/y.php' "$(printf '%s' "$edit_json" | jq -r '.tool_input.file_path')"
 expect_equals 'edit_input event' 'PostToolUse' "$(printf '%s' "$edit_json" | jq -r '.hook_event_name')"
 
+git_parse_segment 'git -C /x -c a=b commit -am msg'
+expect_equals 'git_parse_segment skips option values' 'commit' "$GIT_SUB"
+expect_equals 'git_parse_segment args' '-am msg' "${GIT_ARGS[*]}"
+git_parse_segment 'git status'
+expect_equals 'git_parse_segment with no args' '' "${GIT_ARGS[*]-}"
+git_parse_segment 'git --no-pager log -1'
+expect_equals 'git_parse_segment skips bare options' 'log' "$GIT_SUB"
+git_parse_status=0
+git_parse_segment 'ls -la' || git_parse_status=$?
+expect_equals 'git_parse_segment rejects non-git' '1' "$git_parse_status"
+expect_equals 'git_parse_segment clears sub for non-git' '' "$GIT_SUB"
+
 finish_tests

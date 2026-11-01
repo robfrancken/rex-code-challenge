@@ -122,3 +122,37 @@ command_segments() {
   done < <(hook_quoted_strings "$text")
   return 0
 }
+
+# Parse one command_segments line for git. Sets GIT_SUB to the first non-option
+# word after "git" (skipping -C/-c style option values) and GIT_ARGS to the
+# words after it. Returns 1, with both empty, if the segment's program is not git.
+GIT_SUB=""
+GIT_ARGS=()
+git_parse_segment() {
+  local -a words
+  local index=1 count word
+  read -r -a words <<<"$1" || true
+  GIT_SUB=""
+  GIT_ARGS=()
+  [ "${words[0]:-}" = "git" ] || return 1
+  count="${#words[@]}"
+  while [ "$index" -lt "$count" ]; do
+    word="${words[$index]}"
+    case "$word" in
+      -C | -c | --git-dir | --work-tree | --namespace)
+        index=$((index + 2))
+        ;;
+      -*)
+        index=$((index + 1))
+        ;;
+      *)
+        GIT_SUB="$word"
+        if [ $((index + 1)) -lt "$count" ]; then
+          GIT_ARGS=("${words[@]:$((index + 1))}")
+        fi
+        return 0
+        ;;
+    esac
+  done
+  return 0
+}
