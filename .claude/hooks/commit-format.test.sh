@@ -55,6 +55,9 @@ expect_allowed \
   "$(heredoc_command "'EOF'" 'REX-0001: add hooks')" \
   "$(heredoc_command 'EOF' 'REX-0001: add hooks')" \
   'git commit --amend --no-edit' \
+  'php artisan make:model Contact -m && git commit -m "REX-0001: add model"' \
+  'php artisan make:model Contact -m; git add a.txt && git commit -m "REX-0001: add model"' \
+  'git -C . commit -m "REX-0001: add hooks"' \
   'git status' \
   'git log --oneline'
 
@@ -64,6 +67,8 @@ expect_denied \
   'git commit -m "REX-0001:"' \
   'git commit -m "REX-0001:add hooks"' \
   "$(heredoc_command "'EOF'" 'add hooks')" \
+  'php artisan make:model Contact -m && git commit -m "add model"' \
+  'php artisan make:model Contact -m && git commit' \
   'git commit' \
   'git commit -F msg.txt' \
   'git commit --amend'

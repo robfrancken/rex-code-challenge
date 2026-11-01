@@ -39,14 +39,20 @@ found=0
 heredoc_regex="<<-?[[:space:]]*['\"]?([A-Za-z_][A-Za-z_0-9]*)['\"]?"
 message_regex="(^|[[:space:]])(-[a-zA-Z]*m|--message)[[:space:]=]*(\"([^\"]*)\"|'([^']*)'|([^[:space:]\"']+))"
 
-if [[ "$command" =~ $heredoc_regex ]]; then
+commit_regex="(^|[^[:alnum:]_-])git[[:space:]]+([^;&|]*[[:space:]])?commit([[:space:]]|\$)"
+commit_part="$command"
+if [[ "$command" =~ $commit_regex ]]; then
+  commit_part="${BASH_REMATCH[0]}${command#*"${BASH_REMATCH[0]}"}"
+fi
+
+if [[ "$commit_part" =~ $heredoc_regex ]]; then
   found=1
-  subject="$(printf '%s\n' "$command" | awk 'seen && NF { print; exit } /<<-?[[:space:]]*["'"'"']?[A-Za-z_]/ { seen = 1 }')"
-elif [[ "$command" =~ $message_regex ]]; then
+  subject="$(printf '%s\n' "$commit_part" | awk 'seen && NF { print; exit } /<<-?[[:space:]]*["'"'"']?[A-Za-z_]/ { seen = 1 }')"
+elif [[ "$commit_part" =~ $message_regex ]]; then
   found=1
   subject="${BASH_REMATCH[4]}${BASH_REMATCH[5]}${BASH_REMATCH[6]}"
   subject="${subject%%$'\n'*}"
-elif [[ "$command" == *--amend* && "$command" == *--no-edit* ]]; then
+elif [[ "$commit_part" == *--amend* && "$commit_part" == *--no-edit* ]]; then
   exit 0
 fi
 
