@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { newIdempotencyKey } from '@/lib/api/idempotency';
 import { isApiProblem } from '@/lib/api/problem';
 import {
     callContact,
@@ -85,8 +86,10 @@ export function useCallContact(id: string) {
 
     const call = useCallback(
         async (phone: string): Promise<void> => {
+            const idempotencyKey = newIdempotencyKey();
+
             try {
-                await mutateAsync({ phone, idempotencyKey: crypto.randomUUID() });
+                await mutateAsync({ phone, idempotencyKey });
             } catch {
                 // Surfaced through `error`.
             }

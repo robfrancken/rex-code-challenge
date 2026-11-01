@@ -3,20 +3,23 @@ import { useForm } from 'react-hook-form';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { FieldError } from '@/components/FieldError';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { isApiProblem } from '@/lib/api/problem';
+import { firstFieldError, isApiProblem, isValidationProblem } from '@/lib/api/problem';
 import { isProduction } from '@/lib/env';
-import { login, meQueryKey } from '@/modules/auth/api';
+import { login, meQueryKey, type User } from '@/modules/auth/api';
 import { safeRedirect } from '@/modules/auth/safeRedirect';
 
 interface LoginForm {
     email: string;
     password: string;
 }
+
+const LOGIN_FIELDS = ['email', 'password'] as const satisfies readonly (keyof LoginForm)[];
 
 function loginErrorMessage(error: unknown): string {
     if (isApiProblem(error) && error.status === 429) {
@@ -36,19 +39,43 @@ export function LoginPage() {
     const {
         register,
         handleSubmit,
-        formState: { isSubmitting },
+        setError,
+        formState: { isSubmitting, errors },
     } = useForm<LoginForm>();
+
+    /** A 422 lands under the inputs it names; anything else is one message under the form. */
+    function showLoginError(error: unknown) {
+        let shownUnderField = false;
+
+        if (isValidationProblem(error)) {
+            for (const field of LOGIN_FIELDS) {
+                const message = firstFieldError(error, field);
+                if (message) {
+                    setError(field, { type: 'server', message });
+                    shownUnderField = true;
+                }
+            }
+        }
+
+        if (!shownUnderField) {
+            setErrorMessage(loginErrorMessage(error));
+        }
+    }
 
     const onSubmit = handleSubmit(async (values) => {
         setErrorMessage(null);
+        let user: User;
 
         try {
-            const user = await login(values);
-            queryClient.setQueryData(meQueryKey, user);
-            await navigate(safeRedirect(searchParams.get('redirect')), { replace: true });
+            user = await login(values);
         } catch (error) {
-            setErrorMessage(loginErrorMessage(error));
+            showLoginError(error);
+
+            return;
         }
+
+        queryClient.setQueryData(meQueryKey, user);
+        await navigate(safeRedirect(searchParams.get('redirect')), { replace: true });
     });
 
     return (
@@ -76,9 +103,12 @@ export function LoginPage() {
                                 type="email"
                                 autoComplete="username"
                                 className="pl-8"
+                                aria-invalid={Boolean(errors.email)}
+                                aria-describedby={errors.email ? 'email-error' : undefined}
                                 {...register('email')}
                             />
                         </div>
+                        <FieldError id="email-error" message={errors.email?.message} />
                     </div>
                     <div className="space-y-1.5">
                         <Label htmlFor="password">Password</Label>
@@ -92,9 +122,12 @@ export function LoginPage() {
                                 type="password"
                                 autoComplete="current-password"
                                 className="pl-8"
+                                aria-invalid={Boolean(errors.password)}
+                                aria-describedby={errors.password ? 'password-error' : undefined}
                                 {...register('password')}
                             />
                         </div>
+                        <FieldError id="password-error" message={errors.password?.message} />
                     </div>
 
                     {errorMessage && (

@@ -1,4 +1,11 @@
-import { ApiProblem, isApiProblem, problemMessage } from '@/lib/api/problem';
+import {
+    ApiProblem,
+    fieldErrors,
+    firstFieldError,
+    isApiProblem,
+    isValidationProblem,
+    problemMessage,
+} from '@/lib/api/problem';
 
 describe('ApiProblem', () => {
     it('is built from a 422 problem body with field errors', () => {
@@ -68,5 +75,65 @@ describe('problemMessage', () => {
             title: 'Could not save',
             detail: 'Please try again.',
         });
+    });
+});
+
+describe('fieldErrors', () => {
+    it('keeps the first message for each error key', () => {
+        const problem = new ApiProblem({
+            type: '/problems/validation_failed',
+            title: 'Validation failed',
+            status: 422,
+            detail: 'Invalid.',
+            code: 'validation_failed',
+            errors: {
+                name: ['The name field is required.', 'The name must be a string.'],
+                'phones.0': ['Must be an E.164 number.'],
+            },
+        });
+
+        expect(fieldErrors(problem)).toEqual({
+            name: 'The name field is required.',
+            'phones.0': 'Must be an E.164 number.',
+        });
+        expect(firstFieldError(problem, 'name')).toBe('The name field is required.');
+        expect(firstFieldError(problem, 'emails.0')).toBeUndefined();
+    });
+
+    it('is empty for a problem without field errors', () => {
+        const problem = new ApiProblem({
+            type: 't',
+            title: 'Nope',
+            status: 500,
+            detail: 'Broke.',
+            code: 'server_error',
+        });
+
+        expect(fieldErrors(problem)).toEqual({});
+        expect(firstFieldError(problem, 'name')).toBeUndefined();
+    });
+});
+
+describe('isValidationProblem', () => {
+    it('is true only for a validation_failed problem', () => {
+        const validation = new ApiProblem({
+            type: 't',
+            title: 'Validation failed',
+            status: 422,
+            detail: 'Invalid.',
+            code: 'validation_failed',
+        });
+        const credentials = new ApiProblem({
+            type: 't',
+            title: 'Invalid credentials',
+            status: 422,
+            detail: 'No match.',
+            code: 'invalid_credentials',
+        });
+
+        expect(isValidationProblem(validation)).toBe(true);
+        expect(isValidationProblem(credentials)).toBe(false);
+        expect(isValidationProblem(new Error('x'))).toBe(false);
+        expect(isValidationProblem(null)).toBe(false);
     });
 });

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { toast } from 'sonner';
+import { ProblemAlert } from '@/components/ProblemAlert';
 import {
     Sheet,
     SheetContent,
@@ -9,6 +10,7 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
+import { newIdempotencyKey } from '@/lib/api/idempotency';
 import { isApiProblem, problemMessage } from '@/lib/api/problem';
 import type { ContactInput } from '@/modules/contacts/api/contacts';
 import { useContact, useCreateContact, useUpdateContact } from '@/modules/contacts/api/hooks';
@@ -30,7 +32,7 @@ function reportUnexpected(error: unknown) {
 function CreateBody({ onCancel }: SheetBodyProps) {
     const navigate = useNavigate();
     const { mutateAsync, isPending, error } = useCreateContact();
-    const [idempotencyKey] = useState(() => crypto.randomUUID());
+    const [idempotencyKey] = useState(newIdempotencyKey);
 
     async function submit(input: ContactInput) {
         try {
@@ -71,12 +73,12 @@ function EditBody({ id, onCancel }: SheetBodyProps & { id: string }) {
         return <Skeleton className="mx-4 h-40" />;
     }
 
-    if (loadError) {
-        return isApiProblem(loadError) && loadError.code === 'contact_not_found' ? (
-            <ContactNotFound />
-        ) : (
-            <p className="text-destructive px-4 text-sm">{problemMessage(loadError).detail}</p>
-        );
+    if (isApiProblem(loadError) && loadError.code === 'contact_not_found') {
+        return <ContactNotFound />;
+    }
+
+    if (!contact) {
+        return <ProblemAlert error={loadError} className="mx-4 w-auto" />;
     }
 
     return (

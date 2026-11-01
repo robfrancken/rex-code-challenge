@@ -1,7 +1,8 @@
 import { Mail, MoreHorizontal, Phone, Plus, Search } from 'lucide-react';
 import { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { FieldError } from '@/components/FieldError';
+import { ProblemAlert } from '@/components/ProblemAlert';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -19,7 +20,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { problemMessage } from '@/lib/api/problem';
+import { fieldErrors, isApiProblem, isValidationProblem } from '@/lib/api/problem';
 import { emailDomain } from '@/lib/format/emailDomain';
 import { useContacts } from '@/modules/contacts/api/hooks';
 import type { Contact, SearchParams } from '@/modules/contacts/api/contacts';
@@ -56,6 +57,20 @@ function toSearchParams(urlParams: URLSearchParams): SearchParams {
     }
 
     return params;
+}
+
+/**
+ * The latest value that was defined. A failed search (such as a 422 on a filter) leaves the
+ * query without data, so this keeps the last loaded page on screen beside the error.
+ */
+function useLastLoaded<T>(value: T | undefined): T | undefined {
+    const [lastLoaded, setLastLoaded] = useState(value);
+
+    if (value !== undefined && value !== lastLoaded) {
+        setLastLoaded(value);
+    }
+
+    return value ?? lastLoaded;
 }
 
 function MoreCount({ count }: { count: number }) {
@@ -162,9 +177,19 @@ export function ContactsListPage() {
     const [urlParams, setUrlParams] = useSearchParams();
     const { search } = useLocation();
     const [pendingDelete, setPendingDelete] = useState<Contact | null>(null);
-    const { data, error, isError, isPending, refetch } = useContacts(toSearchParams(urlParams));
+    const {
+        data: latest,
+        error,
+        isError,
+        isPending,
+        refetch,
+    } = useContacts(toSearchParams(urlParams));
+    const data = useLastLoaded(latest);
     const hasFilters = FILTER_KEYS.some((key) => urlParams.has(key));
     const isEmpty = !isError && data !== undefined && data.data.length === 0;
+    const filterErrors = isValidationProblem(error) ? fieldErrors(error) : {};
+    const hasFilterError = FILTER_KEYS.some((key) => filterErrors[key] !== undefined);
+    const canRetry = !(isApiProblem(error) && error.status < 500);
 
     /** Any filter change returns to page 1, so the user is never stranded past the last page. */
     function setFilter(key: FilterKey, value: string) {
@@ -212,28 +237,38 @@ export function ContactsListPage() {
             </div>
 
             <Card className="gap-0 py-0">
-                <div className="grid grid-cols-1 gap-2.5 p-3.5 md:grid-cols-[1fr_1fr_1fr_auto]">
+                <div className="grid grid-cols-1 items-start gap-2.5 p-3.5 md:grid-cols-[1fr_1fr_1fr_auto]">
                     {(
                         [
                             ['name', 'Name', 'Search by name', Search],
                             ['phone', 'Phone', 'Phone, e.g. 0412 345 678', Phone],
                             ['email_domain', 'Email domain', 'Email domain', Mail],
                         ] as const
-                    ).map(([key, label, placeholder, Icon]) => (
-                        <div key={key} className="relative">
-                            <Icon
-                                className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
-                                aria-hidden
-                            />
-                            <DebouncedInput
-                                aria-label={label}
-                                placeholder={placeholder}
-                                className="pl-8"
-                                value={urlParams.get(key) ?? ''}
-                                onCommit={(value) => setFilter(key, value)}
-                            />
-                        </div>
-                    ))}
+                    ).map(([key, label, placeholder, Icon]) => {
+                        const message = filterErrors[key];
+                        const errorId = `${key}-filter-error`;
+
+                        return (
+                            <div key={key}>
+                                <div className="relative">
+                                    <Icon
+                                        className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
+                                        aria-hidden
+                                    />
+                                    <DebouncedInput
+                                        aria-label={label}
+                                        aria-invalid={message !== undefined}
+                                        aria-describedby={message ? errorId : undefined}
+                                        placeholder={placeholder}
+                                        className="pl-8"
+                                        value={urlParams.get(key) ?? ''}
+                                        onCommit={(value) => setFilter(key, value)}
+                                    />
+                                </div>
+                                <FieldError id={errorId} message={message} className="mt-1" />
+                            </div>
+                        );
+                    })}
                     {hasFilters && (
                         <Button variant="outline" onClick={() => setUrlParams({})}>
                             Clear
@@ -265,21 +300,23 @@ export function ContactsListPage() {
                     </TableBody>
                 </Table>
 
-                {isError && (
-                    <Alert variant="destructive" className="m-3.5 w-auto">
-                        <AlertTitle>{problemMessage(error).title}</AlertTitle>
-                        <AlertDescription>
-                            {problemMessage(error).detail}
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="mt-2"
-                                onClick={() => void refetch()}
-                            >
-                                Retry
-                            </Button>
-                        </AlertDescription>
-                    </Alert>
+                {isError && !hasFilterError && (
+                    <ProblemAlert
+                        error={error}
+                        className="m-3.5 w-auto"
+                        action={
+                            canRetry && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="mt-2"
+                                    onClick={() => void refetch()}
+                                >
+                                    Retry
+                                </Button>
+                            )
+                        }
+                    />
                 )}
 
                 {isEmpty && (

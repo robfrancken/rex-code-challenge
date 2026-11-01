@@ -7,6 +7,7 @@ import { ApiProblem } from '@/lib/api/problem';
 import { callContact, deleteContact, getContact } from '@/modules/contacts/api/contacts';
 import { makeContact } from '@/modules/contacts/fixtures';
 import { ContactDetailPage } from '@/modules/contacts/routes/ContactDetailPage';
+import { hideRandomUUID } from '@/test/insecureContext';
 
 vi.mock('@/modules/contacts/api/contacts');
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
@@ -39,6 +40,7 @@ describe('ContactDetailPage', () => {
         vi.resetAllMocks();
         vi.mocked(getContact).mockResolvedValue(contact);
     });
+    afterEach(() => vi.unstubAllGlobals());
 
     it('shows the contact with grouped phones and emails', async () => {
         renderDetail();
@@ -70,6 +72,26 @@ describe('ContactDetailPage', () => {
             expect.stringMatching(UUID),
         );
         expect(await screen.findByText('Went to voicemail')).toBeInTheDocument();
+    });
+
+    it('places a call with a uuid key outside a secure context', async () => {
+        hideRandomUUID();
+        vi.mocked(callContact).mockResolvedValue({
+            contact_id: contact.id,
+            phone: '+61298765432',
+            outcome: 'answered',
+            placed_at: new Date().toISOString(),
+        });
+        renderDetail();
+        await screen.findByRole('heading', { name: 'Chloe Smith' });
+
+        await userEvent.click(screen.getAllByRole('button', { name: /^Call/ })[0]);
+
+        expect(callContact).toHaveBeenCalledWith(
+            contact.id,
+            '+61298765432',
+            expect.stringMatching(UUID),
+        );
     });
 
     it('shows the not-found state for a missing contact', async () => {

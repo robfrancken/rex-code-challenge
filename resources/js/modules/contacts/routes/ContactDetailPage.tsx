@@ -1,12 +1,12 @@
 import { Mail, Pencil, Phone, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { ProblemAlert } from '@/components/ProblemAlert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { isApiProblem, problemMessage } from '@/lib/api/problem';
+import { isApiProblem } from '@/lib/api/problem';
 import { emailDomain } from '@/lib/format/emailDomain';
 import { formatPhone } from '@/lib/format/phone';
 import { relativeTime } from '@/lib/format/relativeTime';
@@ -51,14 +51,7 @@ function ContactDetail({ id }: { id: string }) {
             return <ContactNotFound />;
         }
 
-        const { title, detail } = problemMessage(error);
-
-        return (
-            <Alert variant="destructive">
-                <AlertTitle>{title}</AlertTitle>
-                <AlertDescription>{detail}</AlertDescription>
-            </Alert>
-        );
+        return <ProblemAlert error={error} />;
     }
 
     return (

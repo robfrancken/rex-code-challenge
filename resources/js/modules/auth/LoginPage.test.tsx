@@ -86,6 +86,35 @@ describe('LoginPage', () => {
         ).toBeInTheDocument();
     });
 
+    it('puts validation errors from an empty submit under the email and password inputs', async () => {
+        vi.mocked(login).mockRejectedValue(
+            new ApiProblem({
+                type: 't',
+                title: 'Validation failed',
+                status: 422,
+                detail: 'The email field is required. (and 1 more error)',
+                code: 'validation_failed',
+                errors: {
+                    email: ['The email field is required.'],
+                    password: ['The password field is required.'],
+                },
+            }),
+        );
+        renderLogin();
+
+        await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+
+        const email = screen.getByLabelText('Email');
+        await waitFor(() =>
+            expect(email).toHaveAccessibleDescription('The email field is required.'),
+        );
+        expect(email).toBeInvalid();
+        const password = screen.getByLabelText('Password');
+        expect(password).toHaveAccessibleDescription('The password field is required.');
+        expect(password).toBeInvalid();
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
     it('shows a rate limit message with the retry seconds', async () => {
         vi.mocked(login).mockRejectedValue(
             new ApiProblem(

@@ -7,6 +7,7 @@ import {
     Voicemail,
     type LucideIcon,
 } from 'lucide-react';
+import { ProblemAlert } from '@/components/ProblemAlert';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { isApiProblem } from '@/lib/api/problem';
 import { formatPhone } from '@/lib/format/phone';
@@ -42,16 +43,7 @@ interface CallOutcomeProps {
 }
 
 function ErrorAlert({ error }: { error: unknown }) {
-    if (!isApiProblem(error)) {
-        return (
-            <Alert variant="destructive">
-                <AlertTitle>Call could not be placed</AlertTitle>
-                <AlertDescription>Something went wrong. Please try again.</AlertDescription>
-            </Alert>
-        );
-    }
-
-    if (error.code === 'idempotency_request_in_progress') {
+    if (isApiProblem(error) && error.code === 'idempotency_request_in_progress') {
         return (
             <Alert>
                 <AlertTitle>Call already in progress</AlertTitle>
@@ -61,10 +53,11 @@ function ErrorAlert({ error }: { error: unknown }) {
     }
 
     return (
-        <Alert variant="destructive">
-            <AlertTitle>{error.title}</AlertTitle>
-            <AlertDescription>{error.detail}</AlertDescription>
-        </Alert>
+        <ProblemAlert
+            error={error}
+            fallbackTitle="Call could not be placed"
+            fallbackDetail="Something went wrong. Please try again."
+        />
     );
 }
 

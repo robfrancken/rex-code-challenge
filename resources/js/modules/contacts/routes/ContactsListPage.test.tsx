@@ -45,6 +45,17 @@ function renderList(initialEntry = '/contacts') {
     return router;
 }
 
+function validationProblem(errors: Record<string, string[]>) {
+    return new ApiProblem({
+        type: 't',
+        title: 'Validation failed',
+        status: 422,
+        detail: Object.values(errors)[0][0],
+        code: 'validation_failed',
+        errors,
+    });
+}
+
 async function typeAndDebounce(label: string, value: string) {
     fireEvent.change(screen.getByLabelText(label), { target: { value } });
     await act(() => vi.advanceTimersByTimeAsync(300));
@@ -215,6 +226,40 @@ describe('ContactsListPage', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
 
         await waitFor(() => expect(searchContacts).toHaveBeenCalledTimes(2));
+    });
+
+    it('shows a 422 on phone under the Phone filter, keeps the rows and offers no Retry', async () => {
+        vi.mocked(searchContacts).mockImplementation(async (params) => {
+            if (params.phone) {
+                throw validationProblem({ phone: ['The phone field format is invalid.'] });
+            }
+
+            return makePage([chloe, marcus], { total: 40, to: 2 });
+        });
+        renderList();
+        await screen.findByText('Chloe Smith');
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+
+        await typeAndDebounce('Phone', 'abc');
+
+        const phone = screen.getByLabelText('Phone');
+        await waitFor(() =>
+            expect(phone).toHaveAccessibleDescription('The phone field format is invalid.'),
+        );
+        expect(phone).toBeInvalid();
+        expect(screen.getByText('Chloe Smith')).toBeInTheDocument();
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+    });
+
+    it('shows a 422 on a key with no filter input in the alert, without Retry', async () => {
+        vi.mocked(searchContacts).mockRejectedValue(
+            validationProblem({ page: ['The page field must be at least 1.'] }),
+        );
+        renderList('/contacts?page=2');
+
+        expect(await screen.findByRole('alert')).toHaveTextContent('Validation failed');
+        expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
     });
 
     it('does not re-apply a pending draft after Clear', async () => {

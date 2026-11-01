@@ -1,19 +1,26 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter, Outlet } from 'react-router';
 import { toast } from 'sonner';
 import { ApiProblem } from '@/lib/api/problem';
 import { createContact, getContact, updateContact } from '@/modules/contacts/api/contacts';
+import { contactKeys } from '@/modules/contacts/api/keys';
 import { makeContact } from '@/modules/contacts/fixtures';
 import { ContactSheet } from '@/modules/contacts/routes/ContactSheet';
+import { hideRandomUUID } from '@/test/insecureContext';
 
 vi.mock('@/modules/contacts/api/contacts');
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 const created = makeContact({ id: 'c0ffee00-0000-4000-8000-0000000000aa', name: 'Dan Brown' });
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
-function renderSheet(initialEntry: string) {
+function testQueryClient() {
+    return new QueryClient({ defaultOptions: { queries: { retry: false } } });
+}
+
+function renderSheet(initialEntry: string, queryClient = testQueryClient()) {
     const router = createMemoryRouter(
         [
             {
@@ -30,14 +37,17 @@ function renderSheet(initialEntry: string) {
     );
 
     render(
-        <QueryClientProvider
-            client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-        >
+        <QueryClientProvider client={queryClient}>
             <RouterProvider router={router} />
         </QueryClientProvider>,
     );
 
     return router;
+}
+
+/** TanStack Query batches observer updates on a timer, so a settled refetch reaches React a tick later. */
+function flushQueryNotifications() {
+    return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 async function fillCreateForm() {
@@ -48,6 +58,7 @@ async function fillCreateForm() {
 
 describe('ContactSheet', () => {
     beforeEach(() => vi.resetAllMocks());
+    afterEach(() => vi.unstubAllGlobals());
 
     it('reuses one idempotency key when a failed submit is retried', async () => {
         vi.mocked(createContact)
@@ -66,6 +77,22 @@ describe('ContactSheet', () => {
             .mock.calls.map((callArgs) => callArgs[1]);
         expect(firstKey).toMatch(/^[0-9a-f-]{36}$/);
         expect(secondKey).toBe(firstKey);
+    });
+
+    it('renders the New contact sheet and creates with a uuid key outside a secure context', async () => {
+        hideRandomUUID();
+        vi.mocked(createContact).mockResolvedValue(created);
+        renderSheet('/contacts/new');
+        await fillCreateForm();
+
+        await userEvent.click(screen.getByRole('button', { name: 'Save contact' }));
+
+        await waitFor(() =>
+            expect(createContact).toHaveBeenCalledWith(
+                expect.anything(),
+                expect.stringMatching(UUID),
+            ),
+        );
     });
 
     it('navigates to the new contact and toasts on success', async () => {
@@ -123,6 +150,34 @@ describe('ContactSheet', () => {
             expect(router.state.location.pathname).toBe(`/contacts/${existing.id}`),
         );
         expect(toast.success).toHaveBeenCalledWith('Contact updated');
+    });
+
+    it('keeps the loaded edit form and its typed changes when a background refetch fails', async () => {
+        const existing = makeContact();
+        vi.mocked(getContact).mockResolvedValue(existing);
+        const queryClient = testQueryClient();
+        renderSheet(`/contacts/${existing.id}/edit`, queryClient);
+        const name = await screen.findByLabelText('Name');
+        await userEvent.clear(name);
+        await userEvent.type(name, 'Chloe Jones');
+
+        vi.mocked(getContact).mockRejectedValue(
+            new ApiProblem({
+                type: 't',
+                title: 'Server error',
+                status: 500,
+                detail: 'Try later.',
+                code: 'server_error',
+            }),
+        );
+        await act(async () => {
+            await queryClient.refetchQueries({ queryKey: contactKeys.detail(existing.id) });
+            await flushQueryNotifications();
+        });
+
+        expect(queryClient.getQueryState(contactKeys.detail(existing.id))?.status).toBe('error');
+        expect(screen.getByLabelText('Name')).toHaveValue('Chloe Jones');
+        expect(screen.getByRole('button', { name: 'Save contact' })).toBeInTheDocument();
     });
 
     it('shows the not-found state inside the sheet when editing a missing contact', async () => {

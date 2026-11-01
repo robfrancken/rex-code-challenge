@@ -1,11 +1,13 @@
 import { Plus, X } from 'lucide-react';
 import { useEffect } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
+import { FieldError } from '@/components/FieldError';
+import { ProblemAlert } from '@/components/ProblemAlert';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { ApiProblem } from '@/lib/api/problem';
+import { fieldErrors, isValidationProblem, type ApiProblem } from '@/lib/api/problem';
 import type { ContactInput } from '@/modules/contacts/api/contacts';
 
 type ListName = 'emails' | 'phones';
@@ -65,23 +67,23 @@ type FieldPath = NonNullable<ReturnType<typeof fieldFor>>;
 
 /** Splits API errors into those with a rendered input and the messages that have none. */
 function splitProblem(problem: ApiProblem | null, counts: Record<ListName, number>) {
-    const fieldErrors: [FieldPath, string][] = [];
+    const matched: [FieldPath, string][] = [];
     const unmatched: string[] = [];
 
-    if (problem?.code !== 'validation_failed') {
-        return { fieldErrors, unmatched };
+    if (!isValidationProblem(problem)) {
+        return { matched, unmatched };
     }
 
-    for (const [key, messages] of Object.entries(problem.errors)) {
+    for (const [key, message] of Object.entries(fieldErrors(problem))) {
         const field = fieldFor(key, counts);
         if (field) {
-            fieldErrors.push([field, messages[0]]);
+            matched.push([field, message]);
         } else {
-            unmatched.push(...messages);
+            unmatched.push(message);
         }
     }
 
-    return { fieldErrors, unmatched };
+    return { matched, unmatched };
 }
 
 interface ListFieldProps {
@@ -124,11 +126,7 @@ function ListField({ list, singular, form, inputType }: ListFieldProps) {
                                 <X className="size-4" aria-hidden />
                             </Button>
                         </div>
-                        {error && (
-                            <p id={errorId} className="text-destructive mt-1 text-xs">
-                                {error}
-                            </p>
-                        )}
+                        <FieldError id={errorId} message={error} className="mt-1" />
                     </div>
                 );
             })}
@@ -150,7 +148,7 @@ export function ContactForm({
 }: ContactFormProps) {
     const form = useForm<FormValues>({ defaultValues: toFormValues(defaultValues) });
     const { setError, getValues, formState } = form;
-    const isValidation = problem?.code === 'validation_failed';
+    const isValidation = isValidationProblem(problem);
     const counts = { emails: getValues('emails').length, phones: getValues('phones').length };
     const { unmatched } = splitProblem(problem, counts);
 
@@ -158,7 +156,7 @@ export function ContactForm({
         for (const [field, message] of splitProblem(problem, {
             emails: getValues('emails').length,
             phones: getValues('phones').length,
-        }).fieldErrors) {
+        }).matched) {
             setError(field, { type: 'server', message });
         }
     }, [problem, getValues, setError]);
@@ -169,12 +167,7 @@ export function ContactForm({
             className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4"
             onSubmit={form.handleSubmit((values) => onSubmit(toContactInput(values)))}
         >
-            {problem && !isValidation && (
-                <Alert variant="destructive">
-                    <AlertTitle>{problem.title}</AlertTitle>
-                    <AlertDescription>{problem.detail}</AlertDescription>
-                </Alert>
-            )}
+            {problem && !isValidation && <ProblemAlert error={problem} />}
             {unmatched.length > 0 && (
                 <Alert variant="destructive">
                     <AlertTitle>Please fix the following</AlertTitle>
@@ -196,11 +189,7 @@ export function ContactForm({
                     aria-describedby={formState.errors.name ? 'contact-name-error' : undefined}
                     {...form.register('name')}
                 />
-                {formState.errors.name && (
-                    <p id="contact-name-error" className="text-destructive text-xs">
-                        {formState.errors.name.message}
-                    </p>
-                )}
+                <FieldError id="contact-name-error" message={formState.errors.name?.message} />
             </div>
             <ListField list="emails" singular="Email" form={form} inputType="email" />
             <ListField list="phones" singular="Phone" form={form} inputType="tel" />
