@@ -33,8 +33,10 @@ final class UpsertContact
         });
     }
 
-    private function syncEmails(Contact $contact, UpsertContactData $data): void
-    {
+    private function syncEmails(
+        Contact $contact,
+        UpsertContactData $data,
+    ): void {
         $now = now();
         $rows = [];
         foreach ($data->emails as $email) {
@@ -54,8 +56,10 @@ final class UpsertContact
             ->delete();
     }
 
-    private function syncPhones(Contact $contact, UpsertContactData $data): void
-    {
+    private function syncPhones(
+        Contact $contact,
+        UpsertContactData $data,
+    ): void {
         $now = now();
         $rows = [];
         foreach ($data->phones as $phone) {

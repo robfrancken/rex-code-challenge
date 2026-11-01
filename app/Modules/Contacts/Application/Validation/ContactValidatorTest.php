@@ -27,7 +27,10 @@ it('accepts a valid payload', function (): void {
     expect(app(ContactValidator::class)->validate($payload))->toBe($payload);
 });
 
-it('rejects an invalid payload on the named key', function (array $overrides, string $key): void {
+it('rejects an invalid payload on the named key', function (
+    array $overrides,
+    string $key,
+): void {
     try {
         app(ContactValidator::class)->validate(validContactPayload($overrides));
     } catch (ValidationException $exception) {
@@ -60,6 +63,9 @@ it('explains the phone format when a phone is invalid', function (): void {
 });
 
 it('rejects non-string email and phone entries without erroring', function (): void {
-    expect(fn () => app(ContactValidator::class)->validate(validContactPayload(['emails' => [['x']], 'phones' => [123]])))
+    expect(fn () => app(ContactValidator::class)->validate(validContactPayload([
+        'emails' => [['x']],
+        'phones' => [123],
+    ])))
         ->toThrow(ValidationException::class);
 });

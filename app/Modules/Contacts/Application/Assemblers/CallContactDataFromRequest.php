@@ -16,8 +16,10 @@ final readonly class CallContactDataFromRequest
     /**
      * @throws ValidationException
      */
-    public function assemble(Request $request, string $contactId): CallContactData
-    {
+    public function assemble(
+        Request $request,
+        string $contactId,
+    ): CallContactData {
         return CallContactData::fromValidated($contactId, $this->validator->validate($request->only('phone')));
     }
 }

@@ -22,7 +22,10 @@ it('maps CLI option names onto the DTO', function (): void {
 });
 
 it('uses defaults when options are absent', function (): void {
-    $data = app(SearchContactsDataFromCli::class)->assemble(['name' => null, 'per-page' => null]);
+    $data = app(SearchContactsDataFromCli::class)->assemble([
+        'name' => null,
+        'per-page' => null,
+    ]);
 
     expect($data->name)->toBeNull()
         ->and($data->page)->toBe(1)

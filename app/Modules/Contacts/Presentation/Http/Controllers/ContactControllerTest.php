@@ -68,10 +68,16 @@ it('returns 404 contact_not_found for a non-uuid id', function (): void {
 it('filters and paginates the index', function (): void {
     foreach (['a@rex.com.au', 'b@rex.com.au', 'c@other.com'] as $email) {
         $contact = ContactFactory::new()->create();
-        ContactEmailFactory::new()->for($contact)->create(['email' => $email, 'domain' => Str::after($email, '@')]);
+        ContactEmailFactory::new()->for($contact)->create([
+            'email' => $email,
+            'domain' => Str::after($email, '@'),
+        ]);
     }
 
-    $this->getJson(route('contacts.index', ['email_domain' => 'rex.com.au', 'per_page' => 1]))
+    $this->getJson(route('contacts.index', [
+        'email_domain' => 'rex.com.au',
+        'per_page' => 1,
+    ]))
         ->assertOk()
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('meta.total', 2)

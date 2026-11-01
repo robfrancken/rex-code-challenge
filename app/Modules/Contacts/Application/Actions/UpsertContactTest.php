@@ -14,9 +14,18 @@ use Illuminate\Support\Str;
  * @param  list<string>  $emails
  * @param  list<string>  $phones
  */
-function upsertData(string $id, string $name = 'Jane', array $emails = ['jane@example.com'], array $phones = ['+61412345678']): UpsertContactData
-{
-    return UpsertContactData::fromValidated(['id' => $id, 'name' => $name, 'emails' => $emails, 'phones' => $phones]);
+function upsertData(
+    string $id,
+    string $name = 'Jane',
+    array $emails = ['jane@example.com'],
+    array $phones = ['+61412345678'],
+): UpsertContactData {
+    return UpsertContactData::fromValidated([
+        'id' => $id,
+        'name' => $name,
+        'emails' => $emails,
+        'phones' => $phones,
+    ]);
 }
 
 it('creates a contact with emails and phones', function (): void {
@@ -79,7 +88,12 @@ it('de-duplicates values that normalise to the same email', function (): void {
 
 it('handles a concurrent first create', function (): void {
     $id = (string) Str::uuid();
-    DB::table('contacts')->insert(['id' => $id, 'name' => 'Raced', 'created_at' => now(), 'updated_at' => now()]);
+    DB::table('contacts')->insert([
+        'id' => $id,
+        'name' => 'Raced',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
 
     $result = app(UpsertContact::class)->handle(upsertData($id, 'Jane'));
 

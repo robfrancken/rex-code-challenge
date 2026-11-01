@@ -15,8 +15,10 @@ final class CallContactCommand extends ContactsCommand
 
     protected $description = 'Call a contact';
 
-    public function handle(CallContactDataFromCli $assembler, CallContact $action): int
-    {
+    public function handle(
+        CallContactDataFromCli $assembler,
+        CallContact $action,
+    ): int {
         return $this->guarded(function () use ($assembler, $action): int {
             $id = (string) $this->argument('id');
             $phone = $this->option('phone');

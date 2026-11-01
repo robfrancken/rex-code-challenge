@@ -5,7 +5,10 @@ declare(strict_types=1);
 use App\Modules\Contacts\Domain\Exceptions\InvalidPhoneNumber;
 use App\Modules\Contacts\Domain\ValueObjects\PhoneNumber;
 
-it('accepts valid AU and NZ numbers', function (string $input, string $expected): void {
+it('accepts valid AU and NZ numbers', function (
+    string $input,
+    string $expected,
+): void {
     $phone = PhoneNumber::fromString($input);
 
     expect($phone->value)->toBe($expected)

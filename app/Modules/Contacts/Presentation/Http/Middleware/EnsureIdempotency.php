@@ -35,8 +35,10 @@ final class EnsureIdempotency
      * @throws IdempotencyRequestInProgress
      * @throws IdempotencyKeyReused
      */
-    public function handle(Request $request, Closure $next): Response
-    {
+    public function handle(
+        Request $request,
+        Closure $next,
+    ): Response {
         $key = $request->header('Idempotency-Key');
 
         if (! is_string($key) || $key === '') {
@@ -68,8 +70,12 @@ final class EnsureIdempotency
     /**
      * @param  Closure(Request): Response  $next
      */
-    private function handleLocked(Request $request, Closure $next, string $cacheKey, string $fingerprint): Response
-    {
+    private function handleLocked(
+        Request $request,
+        Closure $next,
+        string $cacheKey,
+        string $fingerprint,
+    ): Response {
         /** @var array{fingerprint: string, status: int, body: string, content_type: string}|null $stored */
         $stored = Cache::get($cacheKey);
 

@@ -11,8 +11,11 @@ use Illuminate\Contracts\Validation\ValidationRule;
 
 final class ValidEmailAddress implements ValidationRule
 {
-    public function validate(string $attribute, mixed $value, Closure $fail): void
-    {
+    public function validate(
+        string $attribute,
+        mixed $value,
+        Closure $fail,
+    ): void {
         if (! is_string($value)) {
             return;
         }

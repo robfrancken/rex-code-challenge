@@ -34,18 +34,30 @@ it('finds by phone digits', function (): void {
 
 it('finds by exact email domain', function (): void {
     $match = ContactFactory::new()->create(['name' => 'Match']);
-    ContactEmailFactory::new()->for($match)->create(['email' => 'jo@rex.com.au', 'domain' => 'rex.com.au']);
+    ContactEmailFactory::new()->for($match)->create([
+        'email' => 'jo@rex.com.au',
+        'domain' => 'rex.com.au',
+    ]);
     $other = ContactFactory::new()->create(['name' => 'Other']);
-    ContactEmailFactory::new()->for($other)->create(['email' => 'jo@notrex.com.au', 'domain' => 'notrex.com.au']);
+    ContactEmailFactory::new()->for($other)->create([
+        'email' => 'jo@notrex.com.au',
+        'domain' => 'notrex.com.au',
+    ]);
 
     expect(searchNames(new SearchContactsData(null, null, 'rex.com.au')))->toBe(['Match']);
 });
 
 it('combines filters with AND', function (): void {
     $both = ContactFactory::new()->create(['name' => 'Jane Smith']);
-    ContactEmailFactory::new()->for($both)->create(['email' => 'j@rex.com.au', 'domain' => 'rex.com.au']);
+    ContactEmailFactory::new()->for($both)->create([
+        'email' => 'j@rex.com.au',
+        'domain' => 'rex.com.au',
+    ]);
     $nameOnly = ContactFactory::new()->create(['name' => 'John Smith']);
-    ContactEmailFactory::new()->for($nameOnly)->create(['email' => 'j@other.com', 'domain' => 'other.com']);
+    ContactEmailFactory::new()->for($nameOnly)->create([
+        'email' => 'j@other.com',
+        'domain' => 'other.com',
+    ]);
 
     expect(searchNames(new SearchContactsData('smith', null, 'rex.com.au')))->toBe(['Jane Smith']);
 });

@@ -19,7 +19,10 @@ it('prints the call as json', function (): void {
     bindGateway(CallOutcome::Voicemail);
     $id = contactWithPhones('+61412345678');
 
-    $this->artisan('contacts:call', ['id' => $id, '--json' => true])
+    $this->artisan('contacts:call', [
+        'id' => $id,
+        '--json' => true,
+    ])
         ->expectsOutputToContain('"outcome":"voicemail"')
         ->assertExitCode(0);
 });
@@ -29,7 +32,10 @@ it('queues the call instead of placing it', function (): void {
     $gateway = bindGateway(CallOutcome::Answered);
     $id = contactWithPhones('+61412345678');
 
-    $this->artisan('contacts:call', ['id' => $id, '--queue' => true])
+    $this->artisan('contacts:call', [
+        'id' => $id,
+        '--queue' => true,
+    ])
         ->expectsOutputToContain('Queued call to contact '.$id)
         ->assertExitCode(0);
 
@@ -48,7 +54,10 @@ it('rejects a phone the contact does not own', function (): void {
     bindGateway(CallOutcome::Answered);
     $id = contactWithPhones('+61412345678');
 
-    $this->artisan('contacts:call', ['id' => $id, '--phone' => '+61498765432'])
+    $this->artisan('contacts:call', [
+        'id' => $id,
+        '--phone' => '+61498765432',
+    ])
         ->expectsOutputToContain('phone')
         ->assertExitCode(2);
 });

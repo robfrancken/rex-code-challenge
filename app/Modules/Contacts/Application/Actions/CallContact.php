@@ -48,8 +48,10 @@ final readonly class CallContact
     /**
      * @throws ValidationException
      */
-    private function chooseNumber(Contact $contact, ?PhoneNumber $requested): PhoneNumber
-    {
+    private function chooseNumber(
+        Contact $contact,
+        ?PhoneNumber $requested,
+    ): PhoneNumber {
         $owned = $contact->phones->map(fn (ContactPhone $phone): PhoneNumber => PhoneNumber::fromString($phone->phone));
 
         if ($requested === null) {

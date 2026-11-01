@@ -15,8 +15,10 @@ final readonly class CallContactDataFromCli
     /**
      * @throws ValidationException
      */
-    public function assemble(string $contactId, ?string $phone): CallContactData
-    {
+    public function assemble(
+        string $contactId,
+        ?string $phone,
+    ): CallContactData {
         return CallContactData::fromValidated($contactId, $this->validator->validate(['phone' => $phone]));
     }
 }

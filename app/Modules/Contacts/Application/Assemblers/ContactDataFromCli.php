@@ -19,8 +19,12 @@ final readonly class ContactDataFromCli
      *
      * @throws ValidationException
      */
-    public function assemble(?string $id, string $name, array $emails, array $phones): UpsertContactData
-    {
+    public function assemble(
+        ?string $id,
+        string $name,
+        array $emails,
+        array $phones,
+    ): UpsertContactData {
         return UpsertContactData::fromValidated($this->validator->validate([
             'id' => $id ?? (string) Str::uuid(),
             'name' => $name,

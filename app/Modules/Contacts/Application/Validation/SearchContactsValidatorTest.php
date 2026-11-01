@@ -6,19 +6,34 @@ use App\Modules\Contacts\Application\Validation\SearchContactsValidator;
 use Illuminate\Validation\ValidationException;
 
 it('accepts valid filters', function (): void {
-    $input = ['name' => 'jane', 'phone' => '+6141', 'email_domain' => 'rex.com.au', 'page' => 2, 'per_page' => 100];
+    $input = [
+        'name' => 'jane',
+        'phone' => '+6141',
+        'email_domain' => 'rex.com.au',
+        'page' => 2,
+        'per_page' => 100,
+    ];
 
-    expect(app(SearchContactsValidator::class)->validate($input))->toBe([...$input, 'phone' => '6141']);
+    expect(app(SearchContactsValidator::class)->validate($input))->toBe([
+        ...$input,
+        'phone' => '6141',
+    ]);
 });
 
 it('normalises phone to digits and lowercases the domain after validating', function (): void {
-    $validated = app(SearchContactsValidator::class)->validate(['phone' => '(04) 1234-5678', 'email_domain' => 'REX.com.au']);
+    $validated = app(SearchContactsValidator::class)->validate([
+        'phone' => '(04) 1234-5678',
+        'email_domain' => 'REX.com.au',
+    ]);
 
     expect($validated['phone'])->toBe('0412345678')
         ->and($validated['email_domain'])->toBe('rex.com.au');
 });
 
-it('rejects invalid filters', function (array $input, string $key): void {
+it('rejects invalid filters', function (
+    array $input,
+    string $key,
+): void {
     try {
         app(SearchContactsValidator::class)->validate($input);
     } catch (ValidationException $exception) {

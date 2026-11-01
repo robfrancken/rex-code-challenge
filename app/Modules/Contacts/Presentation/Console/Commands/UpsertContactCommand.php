@@ -15,8 +15,10 @@ final class UpsertContactCommand extends ContactsCommand
 
     protected $description = 'Create or update a contact';
 
-    public function handle(ContactDataFromCli $assembler, UpsertContact $action): int
-    {
+    public function handle(
+        ContactDataFromCli $assembler,
+        UpsertContact $action,
+    ): int {
         return $this->guarded(function () use ($assembler, $action): int {
             /** @var string|null $id */
             $id = $this->argument('id');

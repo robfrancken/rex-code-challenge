@@ -29,6 +29,10 @@ final class LoginController extends Controller
         /** @var User $user */
         $user = Auth::user();
 
-        return response()->json(['id' => $user->id, 'name' => $user->name, 'email' => $user->email]);
+        return response()->json([
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+        ]);
     }
 }

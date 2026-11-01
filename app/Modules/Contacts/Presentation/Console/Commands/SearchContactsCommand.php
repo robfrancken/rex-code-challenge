@@ -15,8 +15,10 @@ final class SearchContactsCommand extends ContactsCommand
 
     protected $description = 'Search contacts';
 
-    public function handle(SearchContactsDataFromCli $assembler, SearchContacts $action): int
-    {
+    public function handle(
+        SearchContactsDataFromCli $assembler,
+        SearchContacts $action,
+    ): int {
         return $this->guarded(function () use ($assembler, $action): int {
             $page = $action->handle($assembler->assemble($this->options()));
 

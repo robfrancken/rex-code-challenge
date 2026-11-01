@@ -8,5 +8,8 @@ use App\Modules\Contacts\Domain\Models\Contact;
 
 final readonly class UpsertResult
 {
-    public function __construct(public Contact $contact, public bool $created) {}
+    public function __construct(
+        public Contact $contact,
+        public bool $created,
+    ) {}
 }

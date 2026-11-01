@@ -32,7 +32,10 @@ final class ProblemDetails
         return new JsonResponse(
             $body,
             $status,
-            [...$headers, 'Content-Type' => 'application/problem+json'],
+            [
+                ...$headers,
+                'Content-Type' => 'application/problem+json',
+            ],
         );
     }
 }

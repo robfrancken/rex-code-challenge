@@ -8,7 +8,12 @@ use Illuminate\Support\Str;
 
 it('creates then updates a contact', function (): void {
     $id = (string) Str::uuid();
-    $arguments = ['id' => $id, '--name' => 'Jane Smith', '--email' => ['jane@rex.com.au'], '--phone' => ['+61412345678']];
+    $arguments = [
+        'id' => $id,
+        '--name' => 'Jane Smith',
+        '--email' => ['jane@rex.com.au'],
+        '--phone' => ['+61412345678'],
+    ];
 
     $this->artisan('contacts:upsert', $arguments)
         ->expectsOutputToContain('Created contact '.$id)
@@ -22,13 +27,20 @@ it('creates then updates a contact', function (): void {
 });
 
 it('generates an id when none is given', function (): void {
-    $this->artisan('contacts:upsert', ['--name' => 'Jane Smith', '--email' => ['jane@rex.com.au'], '--phone' => ['+61412345678']])
+    $this->artisan('contacts:upsert', [
+        '--name' => 'Jane Smith',
+        '--email' => ['jane@rex.com.au'],
+        '--phone' => ['+61412345678'],
+    ])
         ->expectsOutputToContain('Created contact')
         ->assertExitCode(Command::SUCCESS);
 });
 
 it('reports validation errors as field: message lines', function (): void {
-    $this->artisan('contacts:upsert', ['--name' => 'Jane Smith', '--phone' => ['0412345678']])
+    $this->artisan('contacts:upsert', [
+        '--name' => 'Jane Smith',
+        '--phone' => ['0412345678'],
+    ])
         ->expectsOutputToContain('phones.0')
         ->assertExitCode(Command::INVALID);
 
@@ -36,7 +48,12 @@ it('reports validation errors as field: message lines', function (): void {
 });
 
 it('prints the contact as json', function (): void {
-    $this->artisan('contacts:upsert', ['--name' => 'Jane Smith', '--email' => ['jane@rex.com.au'], '--phone' => ['+61412345678'], '--json' => true])
+    $this->artisan('contacts:upsert', [
+        '--name' => 'Jane Smith',
+        '--email' => ['jane@rex.com.au'],
+        '--phone' => ['+61412345678'],
+        '--json' => true,
+    ])
         ->expectsOutputToContain('"name":"Jane Smith"')
         ->assertExitCode(Command::SUCCESS);
 });

@@ -12,8 +12,12 @@ use Illuminate\Http\Request;
 
 final class CallController extends Controller
 {
-    public function store(Request $request, string $id, CallContactDataFromRequest $assembler, CallContact $action): CallResource
-    {
+    public function store(
+        Request $request,
+        string $id,
+        CallContactDataFromRequest $assembler,
+        CallContact $action,
+    ): CallResource {
         return new CallResource($action->handle($assembler->assemble($request, $id)));
     }
 }

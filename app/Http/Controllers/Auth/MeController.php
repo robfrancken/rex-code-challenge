@@ -16,6 +16,10 @@ final class MeController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        return response()->json(['id' => $user->id, 'name' => $user->name, 'email' => $user->email]);
+        return response()->json([
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+        ]);
     }
 }

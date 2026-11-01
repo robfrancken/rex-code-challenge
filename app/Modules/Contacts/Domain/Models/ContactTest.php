@@ -36,7 +36,13 @@ it('cascades deletes to child rows', function (): void {
 
 it('rejects a duplicate email for the same contact', function (): void {
     $contact = ContactFactory::new()->create();
-    ContactEmailFactory::new()->for($contact)->create(['email' => 'a@b.com', 'domain' => 'b.com']);
+    ContactEmailFactory::new()->for($contact)->create([
+        'email' => 'a@b.com',
+        'domain' => 'b.com',
+    ]);
 
-    ContactEmailFactory::new()->for($contact)->create(['email' => 'a@b.com', 'domain' => 'b.com']);
+    ContactEmailFactory::new()->for($contact)->create([
+        'email' => 'a@b.com',
+        'domain' => 'b.com',
+    ]);
 })->throws(UniqueConstraintViolationException::class);

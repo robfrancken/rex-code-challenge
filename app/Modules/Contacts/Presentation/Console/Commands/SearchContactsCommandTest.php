@@ -8,7 +8,10 @@ use Illuminate\Support\Facades\Artisan;
 
 beforeEach(function (): void {
     $contact = ContactFactory::new()->create(['name' => 'Jane Smith']);
-    ContactEmailFactory::new()->for($contact)->create(['email' => 'jane@rex.com.au', 'domain' => 'rex.com.au']);
+    ContactEmailFactory::new()->for($contact)->create([
+        'email' => 'jane@rex.com.au',
+        'domain' => 'rex.com.au',
+    ]);
 });
 
 it('searches by email domain and prints the page summary', function (): void {
@@ -19,7 +22,10 @@ it('searches by email domain and prints the page summary', function (): void {
 });
 
 it('prints json that decodes to the matches', function (): void {
-    Artisan::call('contacts:search', ['--domain' => 'rex.com.au', '--json' => true]);
+    Artisan::call('contacts:search', [
+        '--domain' => 'rex.com.au',
+        '--json' => true,
+    ]);
     $decoded = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
 
     expect($decoded)->toHaveCount(1)

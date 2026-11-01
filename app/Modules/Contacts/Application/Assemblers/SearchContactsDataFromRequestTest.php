@@ -7,7 +7,10 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 it('strips non-digits from the phone and lowercases the domain', function (): void {
-    $request = Request::create('/', 'GET', ['phone' => '+61 412', 'email_domain' => 'REX.com.au']);
+    $request = Request::create('/', 'GET', [
+        'phone' => '+61 412',
+        'email_domain' => 'REX.com.au',
+    ]);
 
     $data = app(SearchContactsDataFromRequest::class)->assemble($request);
 
@@ -18,7 +21,11 @@ it('strips non-digits from the phone and lowercases the domain', function (): vo
 });
 
 it('treats blank filters as absent', function (): void {
-    $request = Request::create('/', 'GET', ['name' => '', 'phone' => '', 'email_domain' => '']);
+    $request = Request::create('/', 'GET', [
+        'name' => '',
+        'phone' => '',
+        'email_domain' => '',
+    ]);
 
     $data = app(SearchContactsDataFromRequest::class)->assemble($request);
 

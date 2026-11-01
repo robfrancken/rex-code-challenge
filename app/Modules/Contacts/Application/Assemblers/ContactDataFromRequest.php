@@ -16,8 +16,10 @@ final readonly class ContactDataFromRequest
     /**
      * @throws ValidationException
      */
-    public function assemble(Request $request, string $id): UpsertContactData
-    {
+    public function assemble(
+        Request $request,
+        string $id,
+    ): UpsertContactData {
         return UpsertContactData::fromValidated(
             $this->validator->validate(['id' => $id] + $request->only('name', 'emails', 'phones')),
         );
