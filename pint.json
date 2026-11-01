@@ -1,0 +1,14 @@
+{
+    "preset": "laravel",
+    "rules": {
+        "method_argument_space": {
+            "on_multiline": "ensure_fully_multiline"
+        },
+        "multiline_promoted_properties": {
+            "minimum_number_of_parameters": 2
+        },
+        "trailing_comma_in_multiline": {
+            "elements": ["arrays", "arguments", "parameters"]
+        }
+    }
+}

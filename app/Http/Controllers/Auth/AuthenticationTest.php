@@ -1,0 +1,140 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Models\User;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+
+it('logs in with correct credentials', function (): void {
+    $user = User::factory()->create(['email' => 'demo@example.com']);
+
+    $this->postJson(route('login'), [
+        'email' => 'demo@example.com',
+        'password' => 'password',
+    ])
+        ->assertOk()
+        ->assertExactJson([
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => 'demo@example.com',
+        ]);
+
+    $this->assertAuthenticated();
+});
+
+it('regenerates the session id on login', function (): void {
+    User::factory()->create(['email' => 'demo@example.com']);
+    $fixatedId = Str::random(40);
+
+    $this->withCredentials()
+        ->withCookie((string) config('session.cookie'), $fixatedId)
+        ->postJson(route('login'), [
+            'email' => 'demo@example.com',
+            'password' => 'password',
+        ])
+        ->assertOk();
+
+    expect(session()->getId())->not->toBe($fixatedId);
+});
+
+it('gives the same response for a wrong password and an unknown email', function (): void {
+    User::factory()->create(['email' => 'demo@example.com']);
+
+    $wrongPassword = $this->postJson(route('login'), [
+        'email' => 'demo@example.com',
+        'password' => 'nope',
+    ]);
+    $unknownEmail = $this->postJson(route('login'), [
+        'email' => 'ghost@example.com',
+        'password' => 'password',
+    ]);
+
+    $wrongPassword->assertStatus(422)->assertJsonPath('code', 'invalid_credentials');
+    expect($unknownEmail->getStatusCode())->toBe($wrongPassword->getStatusCode())
+        ->and($unknownEmail->json())->toBe($wrongPassword->json());
+    $this->assertGuest();
+});
+
+it('does not report a failed login at error level', function (): void {
+    User::factory()->create(['email' => 'demo@example.com']);
+    Log::spy();
+
+    $this->postJson(route('login'), [
+        'email' => 'demo@example.com',
+        'password' => 'nope',
+    ])->assertStatus(422);
+
+    Log::shouldNotHaveReceived('error');
+});
+
+it('validates the login payload', function (): void {
+    $this->postJson(route('login'), [])
+        ->assertStatus(422)
+        ->assertJsonPath('code', 'validation_failed');
+});
+
+it('rejects guests from the me endpoint', function (): void {
+    $this->getJson(route('me'))
+        ->assertUnauthorized()
+        ->assertJsonPath('code', 'unauthenticated');
+});
+
+it('returns the authenticated user from the me endpoint', function (): void {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->getJson(route('me'))
+        ->assertOk()
+        ->assertExactJson([
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+        ]);
+});
+
+it('throttles the me endpoint after 60 requests a minute', function (): void {
+    $this->actingAs(User::factory()->create());
+    foreach (range(1, 60) as $request) {
+        $this->getJson(route('me'))->assertOk();
+    }
+
+    $this->getJson(route('me'))
+        ->assertTooManyRequests()
+        ->assertJsonPath('code', 'too_many_requests');
+});
+
+it('logs out', function (): void {
+    $this->actingAs(User::factory()->create())
+        ->postJson(route('logout'))
+        ->assertNoContent();
+
+    $this->assertGuest();
+});
+
+it('throttles the sixth login attempt within a minute', function (): void {
+    $payload = [
+        'email' => 'demo@example.com',
+        'password' => 'wrong',
+    ];
+
+    foreach (range(1, 5) as $attempt) {
+        $this->postJson(route('login'), $payload)->assertStatus(422);
+    }
+
+    $this->postJson(route('login'), $payload)
+        ->assertStatus(429)
+        ->assertJsonPath('code', 'too_many_requests');
+});
+
+it('returns a validation problem, not a server error, for an array email', function (): void {
+    $this->postJson(route('login'), [
+        'email' => ['x'],
+        'password' => 'password',
+    ])
+        ->assertStatus(422)
+        ->assertJsonPath('code', 'validation_failed');
+});
+
+it('returns 401 rather than a login redirect to a guest on a non-JSON api request', function (): void {
+    $this->get('/api/v1/me', ['Accept' => 'text/html'])->assertUnauthorized();
+});

@@ -1,0 +1,556 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Rex CRM Contacts API",
+    "version": "1.0.0",
+    "description": "Session-authenticated JSON API for the Contacts module. Every error is an RFC 9457 problem document served as application/problem+json with a stable `code`. State-changing requests (POST, PUT, DELETE) need the XSRF header: read the XSRF-TOKEN cookie set by any earlier web response and echo it in X-XSRF-TOKEN."
+  },
+  "servers": [{ "url": "/" }],
+  "security": [{ "sessionCookie": [], "xsrfHeader": [] }],
+  "tags": [
+    { "name": "Auth" },
+    { "name": "Contacts" },
+    { "name": "Calls" }
+  ],
+  "paths": {
+    "/login": {
+      "post": {
+        "tags": ["Auth"],
+        "operationId": "login",
+        "summary": "Log in with email and password",
+        "description": "Starts a session (the session cookie is regenerated). Throttled by the `login` rate limiter.",
+        "security": [{ "xsrfHeader": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/LoginRequest" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Logged in.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } }
+          },
+          "419": { "$ref": "#/components/responses/CsrfTokenMismatch" },
+          "422": {
+            "description": "Either `validation_failed` (missing or malformed email/password, with `errors`) or `invalid_credentials` (the credentials do not match).",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/Problem" },
+                "examples": {
+                  "validation_failed": {
+                    "value": {
+                      "type": "/problems/validation_failed",
+                      "title": "Validation failed",
+                      "status": 422,
+                      "detail": "The given data was invalid.",
+                      "code": "validation_failed",
+                      "errors": { "email": ["The email field is required."] }
+                    }
+                  },
+                  "invalid_credentials": {
+                    "value": {
+                      "type": "/problems/invalid_credentials",
+                      "title": "Invalid credentials",
+                      "status": 422,
+                      "detail": "These credentials do not match our records.",
+                      "code": "invalid_credentials"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/logout": {
+      "post": {
+        "tags": ["Auth"],
+        "operationId": "logout",
+        "summary": "Log out and invalidate the session",
+        "responses": {
+          "204": { "description": "Logged out. No body." },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "419": { "$ref": "#/components/responses/CsrfTokenMismatch" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "tags": ["Auth"],
+        "operationId": "me",
+        "summary": "The authenticated user",
+        "security": [{ "sessionCookie": [] }],
+        "responses": {
+          "200": {
+            "description": "The current user.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/v1/contacts": {
+      "get": {
+        "tags": ["Contacts"],
+        "operationId": "searchContacts",
+        "summary": "Search contacts",
+        "description": "`q` is one box matched against the contact name (substring), phone digits (when `q` looks like a phone number) and email domain prefix; a contact matches if any of these match. The explicit filters combine with AND, and with `q`. Results are ordered by name, then id, and paged by cursor: pass `meta.next_cursor` back as `cursor`. Changing the filters and reusing an old cursor is harmless: the cursor only marks a position in the name order. A search is stopped after a server-configured time (2 seconds by default) and returns 422 `search_too_broad`; add characters or another filter.",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Free-text search. A contact matches when its name contains the text, when one of its email domains starts with it, or, only when the text looks like a phone number (an optional `+`, then digits, spaces, dashes and brackets, with at least two digits), when one of its phone numbers contains those digits. A one-character `q` is a prefix match on the name and the email domain. Operator characters are treated as text. Ignored when nothing in it is searchable.",
+            "schema": { "type": "string", "maxLength": 255, "examples": ["jane", "0412 345", "rex.com"] }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "description": "Case-insensitive substring match on the contact name, so `chloe s` finds `Chloe Smith` and `o'reilly` finds `O'Reilly`. A run of spaces, hyphens or other search operator characters counts as one separator in both the text and the name, so `mary-jane` finds both `Mary Jane` and `Mary-Jane`, but `mar e` does not find `Marie`. When no word in the text has two or more characters (for example `a b`), it matches a name prefix instead.",
+            "schema": { "type": "string", "maxLength": 255 }
+          },
+          {
+            "name": "phone",
+            "in": "query",
+            "description": "A full or partial phone number. Formatting (spaces, dashes, parentheses, leading +) is allowed and ignored: the value is reduced to digits, one leading trunk 0 is dropped (so the local `0412 345 678` finds `+61412345678`), and the result is matched as a substring of stored phone numbers. A value with fewer than two digits left is ignored, as if the filter were absent.",
+            "schema": {
+              "type": "string",
+              "maxLength": 25,
+              "pattern": "^\\+?[\\s\\-(]*[0-9][0-9\\s\\-()]*$",
+              "examples": ["+61 412", "0412 345 678"]
+            }
+          },
+          {
+            "name": "email_domain",
+            "in": "query",
+            "description": "Exact, case-insensitive match on the part of an email after the last `@`. A leading `@` is ignored, so `@example.com` equals `example.com`.",
+            "schema": { "type": "string", "maxLength": 253, "examples": ["example.com"] }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 25 }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Opaque cursor from `meta.next_cursor` or `meta.prev_cursor` (or the `cursor` in `links.next` or `links.prev`) of an earlier response. A malformed cursor is a 422 `validation_failed` on `cursor`. There is no first or last page link: `links.first` and `links.last` are always null.",
+            "schema": { "type": "string", "maxLength": 4400 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of contacts.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ContactPage" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "422": {
+            "description": "`validation_failed`, for example a malformed `cursor`, or `search_too_broad`: the search matched too many contacts to sort in time.",
+            "content": {
+              "application/problem+json": {
+                "schema": { "$ref": "#/components/schemas/Problem" },
+                "example": {
+                  "type": "/problems/validation_failed",
+                  "title": "Validation failed",
+                  "status": 422,
+                  "detail": "The given data was invalid.",
+                  "code": "validation_failed",
+                  "errors": { "cursor": ["The cursor is not a valid page cursor."] }
+                }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      },
+      "post": {
+        "tags": ["Contacts"],
+        "operationId": "createContact",
+        "summary": "Create a contact (server-generated id)",
+        "description": "Requires an `Idempotency-Key` header. The server generates the contact id (a lowercase UUID) and returns it in the body and in the `Location` header. A retry with the same key and an identical request replays the stored 201 (marked with `Idempotency-Replayed: true`) with the same id for 24 hours, so exactly one contact is created; the same key with a different request is rejected. Validation errors are not stored.",
+        "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/ContactInput" } }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The contact was created.",
+            "headers": {
+              "Location": { "description": "Absolute URL of the created contact", "schema": { "type": "string", "format": "uri-reference" } },
+              "Idempotency-Replayed": { "description": "Present and `true` when this response was replayed from a previous request with the same Idempotency-Key.", "schema": { "type": "string", "enum": ["true"] } }
+            },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ContactResponse" } } }
+          },
+          "400": {
+            "description": "`idempotency_key_missing` (the Idempotency-Key header is absent or empty) or `idempotency_key_invalid` (it is longer than 255 characters).",
+            "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "409": {
+            "description": "`idempotency_request_in_progress`: a request with the same Idempotency-Key is still being processed. Retry after the `Retry-After` delay.",
+            "headers": {
+              "Retry-After": { "description": "Seconds to wait before retrying.", "schema": { "type": "integer", "minimum": 0 } }
+            },
+            "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+          },
+          "419": { "$ref": "#/components/responses/CsrfTokenMismatch" },
+          "422": {
+            "description": "Either `validation_failed` (with `errors`) or `idempotency_key_reused` (the key was already used with a different request).",
+            "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+          },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/v1/contacts/{contact}": {
+      "parameters": [{ "$ref": "#/components/parameters/ContactId" }],
+      "put": {
+        "tags": ["Contacts"],
+        "operationId": "updateContact",
+        "summary": "Create or replace a contact at a client-supplied id",
+        "description": "Creates the contact when none exists with this id (201) or replaces it (200). Idempotent: repeating the same request leaves the same state. Keyed by the UUID in the path. Emails are trimmed and lowercased; phones are trimmed and never reformatted. Duplicates are collapsed (the 10-item limits count entries before de-duplication). A non-UUID `contact` yields 422 `validation_failed` with an error on `id`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/ContactInput" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "An existing contact was updated.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ContactResponse" } } }
+          },
+          "201": {
+            "description": "A new contact was created.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ContactResponse" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "419": { "$ref": "#/components/responses/CsrfTokenMismatch" },
+          "422": { "$ref": "#/components/responses/ValidationFailed" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      },
+      "get": {
+        "tags": ["Contacts"],
+        "operationId": "getContact",
+        "summary": "Fetch one contact",
+        "security": [{ "sessionCookie": [] }],
+        "responses": {
+          "200": {
+            "description": "The contact.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ContactResponse" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "404": { "$ref": "#/components/responses/ContactNotFound" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      },
+      "delete": {
+        "tags": ["Contacts"],
+        "operationId": "deleteContact",
+        "summary": "Delete a contact",
+        "responses": {
+          "204": { "description": "Deleted. No body." },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "404": { "$ref": "#/components/responses/ContactNotFound" },
+          "419": { "$ref": "#/components/responses/CsrfTokenMismatch" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/v1/contacts/{contact}/calls": {
+      "parameters": [{ "$ref": "#/components/parameters/ContactId" }],
+      "post": {
+        "tags": ["Calls"],
+        "operationId": "callContact",
+        "summary": "Place a call to a contact",
+        "description": "Requires an `Idempotency-Key` header. A retry with the same key and an identical request replays the stored 2xx response (marked with `Idempotency-Replayed: true`) for 24 hours; the same key with a different request is rejected. Only 2xx responses are stored. If `phone` is omitted the contact's first phone is dialled. A telephony `failed` outcome is returned as 502 `telephony_failed`, never as a 2xx.",
+        "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/CallRequest" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The call was placed. Outcome is never `failed` here.",
+            "headers": {
+              "Idempotency-Replayed": {
+                "description": "Present and `true` when this response was replayed from a previous request with the same Idempotency-Key.",
+                "schema": { "type": "string", "enum": ["true"] }
+              }
+            },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallResponse" } } }
+          },
+          "400": {
+            "description": "`idempotency_key_missing` (the Idempotency-Key header is absent or empty) or `idempotency_key_invalid` (it is longer than 255 characters).",
+            "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "404": { "$ref": "#/components/responses/ContactNotFound" },
+          "409": {
+            "description": "`idempotency_request_in_progress`: a request with the same Idempotency-Key is still being processed. Retry after the `Retry-After` delay.",
+            "headers": {
+              "Retry-After": { "description": "Seconds to wait before retrying.", "schema": { "type": "integer", "minimum": 0 } }
+            },
+            "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+          },
+          "419": { "$ref": "#/components/responses/CsrfTokenMismatch" },
+          "422": {
+            "description": "Either `validation_failed` (bad phone, a phone that is not one of the contact's numbers, or a contact with no phones; with `errors`) or `idempotency_key_reused` (the key was already used with a different request).",
+            "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+          },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/ServerError" },
+          "502": {
+            "description": "`telephony_failed`: the telephony provider failed to place the call.",
+            "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "laravel-session",
+        "description": "Session cookie issued by POST /login. The cookie name comes from config('session.cookie'), so it depends on the deployment; `laravel-session` is the default here."
+      },
+      "xsrfHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-XSRF-TOKEN",
+        "description": "Value of the XSRF-TOKEN cookie. Required on POST, PUT and DELETE; a mismatch returns 419 `csrf_token_mismatch`."
+      }
+    },
+    "parameters": {
+      "ContactId": {
+        "name": "contact",
+        "in": "path",
+        "required": true,
+        "description": "Contact UUID. On GET, DELETE and POST calls a malformed id returns 404 `contact_not_found`; on PUT it returns 422 `validation_failed` with an error on `id`.",
+        "schema": { "type": "string", "format": "uuid" }
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "description": "Client-generated unique key (1 to 255 characters), scoped to the user and operation.",
+        "schema": { "type": "string", "minLength": 1, "maxLength": 255 }
+      }
+    },
+    "responses": {
+      "Unauthenticated": {
+        "description": "`unauthenticated`: no valid session.",
+        "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+      },
+      "CsrfTokenMismatch": {
+        "description": "`csrf_token_mismatch`: the XSRF token is missing or expired.",
+        "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+      },
+      "ValidationFailed": {
+        "description": "`validation_failed`: `errors` maps field names to messages.",
+        "content": {
+          "application/problem+json": {
+            "schema": { "$ref": "#/components/schemas/Problem" },
+            "example": {
+              "type": "/problems/validation_failed",
+              "title": "Validation failed",
+              "status": 422,
+              "detail": "The given data was invalid.",
+              "code": "validation_failed",
+              "errors": { "phones.0": ["The phones.0 must be an E.164 Australian (+61) or New Zealand (+64) number, for example +61412345678."] }
+            }
+          }
+        }
+      },
+      "ContactNotFound": {
+        "description": "`contact_not_found`: no contact with that id (including malformed ids).",
+        "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+      },
+      "TooManyRequests": {
+        "description": "`too_many_requests`: rate limit exceeded (60 per minute per user on /api/v1; the login limiter on /login).",
+        "headers": {
+          "Retry-After": { "description": "Seconds until the limit resets.", "schema": { "type": "integer", "minimum": 0 } }
+        },
+        "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+      },
+      "ServerError": {
+        "description": "`server_error`: an unexpected error. The body never contains a message, class or trace.",
+        "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+      }
+    },
+    "schemas": {
+      "PhoneNumber": {
+        "type": "string",
+        "description": "E.164 Australian (+61) or New Zealand (+64) number. Input is trimmed, never reformatted.",
+        "pattern": "^\\+(61[2-478]\\d{8}|64[2-9]\\d{7,9})$",
+        "examples": ["+61412345678", "+64211234567"]
+      },
+      "CallOutcome": {
+        "type": "string",
+        "enum": ["answered", "no_answer", "busy", "voicemail", "rejected", "failed"],
+        "description": "`failed` is surfaced as 502 `telephony_failed` and never appears in a successful CallResult."
+      },
+      "User": {
+        "type": "object",
+        "required": ["id", "name", "email"],
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "email": { "type": "string", "format": "email" }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string" }
+        }
+      },
+      "Contact": {
+        "type": "object",
+        "required": ["id", "name", "emails", "phones", "created_at", "updated_at"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string", "maxLength": 255 },
+          "emails": { "type": "array", "items": { "type": "string", "format": "email" } },
+          "phones": { "type": "array", "items": { "$ref": "#/components/schemas/PhoneNumber" } },
+          "created_at": { "type": ["string", "null"], "format": "date-time" },
+          "updated_at": { "type": ["string", "null"], "format": "date-time" }
+        }
+      },
+      "ContactInput": {
+        "type": "object",
+        "description": "Request body for PUT. The id comes from the path.",
+        "required": ["name", "emails", "phones"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+          "emails": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "items": { "type": "string", "maxLength": 254 }
+          },
+          "phones": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "items": { "$ref": "#/components/schemas/PhoneNumber" }
+          }
+        }
+      },
+      "ContactResponse": {
+        "type": "object",
+        "required": ["data"],
+        "properties": { "data": { "$ref": "#/components/schemas/Contact" } }
+      },
+      "ContactPage": {
+        "type": "object",
+        "required": ["data", "links", "meta"],
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/Contact" } },
+          "links": {
+            "type": "object",
+            "required": ["first", "last", "prev", "next"],
+            "properties": {
+              "first": { "type": ["string", "null"], "description": "Always null: cursor paging has no first-page link." },
+              "last": { "type": ["string", "null"], "description": "Always null: cursor paging has no last-page link." },
+              "prev": { "type": ["string", "null"] },
+              "next": { "type": ["string", "null"] }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": ["path", "per_page", "next_cursor", "prev_cursor"],
+            "properties": {
+              "path": { "type": "string" },
+              "per_page": { "type": "integer" },
+              "next_cursor": { "type": ["string", "null"], "description": "Pass as `cursor` for the next page; null on the last page." },
+              "prev_cursor": { "type": ["string", "null"], "description": "Pass as `cursor` for the previous page; null on the first page." }
+            }
+          }
+        }
+      },
+      "CallRequest": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "oneOf": [{ "$ref": "#/components/schemas/PhoneNumber" }, { "type": "null" }],
+            "description": "Must be one of the contact's phones. Defaults to the contact's first phone."
+          }
+        }
+      },
+      "CallResult": {
+        "type": "object",
+        "required": ["contact_id", "phone", "outcome", "placed_at"],
+        "properties": {
+          "contact_id": { "type": "string", "format": "uuid" },
+          "phone": { "$ref": "#/components/schemas/PhoneNumber" },
+          "outcome": { "$ref": "#/components/schemas/CallOutcome" },
+          "placed_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CallResponse": {
+        "type": "object",
+        "required": ["data"],
+        "properties": { "data": { "$ref": "#/components/schemas/CallResult" } }
+      },
+      "Problem": {
+        "type": "object",
+        "description": "RFC 9457 problem document (application/problem+json).",
+        "required": ["type", "title", "status", "detail", "code"],
+        "properties": {
+          "type": { "type": "string", "description": "`/problems/{code}`." },
+          "title": { "type": "string" },
+          "status": { "type": "integer" },
+          "detail": { "type": "string" },
+          "code": {
+            "type": "string",
+            "enum": [
+              "validation_failed",
+              "invalid_credentials",
+              "contact_not_found",
+              "not_found",
+              "unauthenticated",
+              "csrf_token_mismatch",
+              "idempotency_key_missing",
+              "idempotency_key_reused",
+              "idempotency_key_invalid",
+              "idempotency_request_in_progress",
+              "telephony_failed",
+              "search_too_broad",
+              "too_many_requests",
+              "http_error",
+              "server_error"
+            ]
+          },
+          "errors": {
+            "type": "object",
+            "description": "Present on `validation_failed`: field name to list of messages.",
+            "additionalProperties": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    }
+  }
+}

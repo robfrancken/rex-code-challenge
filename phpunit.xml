@@ -5,17 +5,26 @@
          colors="true"
 >
     <testsuites>
-        <testsuite name="Unit">
-            <directory>tests/Unit</directory>
+        <testsuite name="App">
+            <directory suffix="Test.php">app</directory>
+            <directory suffix="Test.php">routes</directory>
+            <directory suffix="Test.php">database/seeders</directory>
         </testsuite>
-        <testsuite name="Feature">
-            <directory>tests/Feature</directory>
+        <testsuite name="Arch">
+            <directory>tests/Arch</directory>
         </testsuite>
     </testsuites>
     <source>
         <include>
             <directory>app</directory>
+            <directory>routes</directory>
+            <directory>database/seeders</directory>
         </include>
+        <exclude>
+            <directory suffix="Test.php">app</directory>
+            <directory suffix="Test.php">routes</directory>
+            <directory suffix="Test.php">database/seeders</directory>
+        </exclude>
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
@@ -23,8 +32,8 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
+        <env name="DB_CONNECTION" value="mysql"/>
+        <env name="DB_DATABASE" value="rex_code_challenge_testing"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>

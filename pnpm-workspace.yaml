@@ -1,0 +1,5 @@
+# Supply-chain hardening. Do not weaken without approval (see .claude/rules/package-management.md).
+minimumReleaseAge: 10080
+trustPolicy: no-downgrade
+strictDepBuilds: true
+blockExoticSubdeps: true

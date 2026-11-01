@@ -11,15 +11,19 @@ class DatabaseSeeder extends Seeder
     use WithoutModelEvents;
 
     /**
-     * Seed the application's database.
+     * Seed the application's database. The bulk fake contacts are left out in production.
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        User::query()->where('email', 'demo@example.com')->firstOr(fn (): User => User::factory()->create([
+            'name' => 'Demo User',
+            'email' => 'demo@example.com',
+        ]));
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        $this->call(ContactSeeder::class);
+
+        if (! app()->isProduction()) {
+            $this->call(BulkContactSeeder::class);
+        }
     }
 }

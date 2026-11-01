@@ -1,0 +1,102 @@
+import { useCallback, useState } from 'react';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { newIdempotencyKey } from '@/lib/api/idempotency';
+import { isApiProblem } from '@/lib/api/problem';
+import {
+    callContact,
+    createContact,
+    deleteContact,
+    getContact,
+    searchContacts,
+    updateContact,
+    type CallResult,
+    type ContactInput,
+    type SearchParams,
+} from '@/modules/contacts/api/contacts';
+import { contactKeys } from '@/modules/contacts/api/keys';
+
+export const PAGE_SIZE = 25;
+
+/** One page of the search: `params` is the URL state (`q`, `email_domain`, `cursor`). */
+export function useContacts(params: SearchParams) {
+    const request: SearchParams = { ...params, per_page: PAGE_SIZE };
+
+    return useQuery({
+        queryKey: contactKeys.list(request),
+        queryFn: () => searchContacts(request),
+        placeholderData: keepPreviousData,
+    });
+}
+
+export function useContact(id: string) {
+    return useQuery({ queryKey: contactKeys.detail(id), queryFn: () => getContact(id) });
+}
+
+function useInvalidateContacts() {
+    const queryClient = useQueryClient();
+
+    return () => queryClient.invalidateQueries({ queryKey: contactKeys.all });
+}
+
+export function useCreateContact() {
+    const invalidate = useInvalidateContacts();
+
+    return useMutation({
+        mutationFn: ({ input, idempotencyKey }: { input: ContactInput; idempotencyKey: string }) =>
+            createContact(input, idempotencyKey),
+        onSuccess: invalidate,
+    });
+}
+
+export function useUpdateContact(id: string) {
+    const invalidate = useInvalidateContacts();
+
+    return useMutation({
+        mutationFn: (input: ContactInput) => updateContact(id, input),
+        onSuccess: invalidate,
+    });
+}
+
+export function useDeleteContact() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id: string) => deleteContact(id),
+        onSuccess: (_, id) => {
+            queryClient.removeQueries({ queryKey: contactKeys.detail(id) });
+
+            return queryClient.invalidateQueries({ queryKey: contactKeys.lists() });
+        },
+    });
+}
+
+/**
+ * Places calls for one contact. A network failure is retried once with the same key, so the server
+ * places at most one call. `last` is the most recent successful result and survives later failures;
+ * `call` never throws, because `error` is exposed for rendering. A call changes no contact data, so
+ * no query is invalidated.
+ */
+export function useCallContact(id: string) {
+    const [last, setLast] = useState<CallResult | undefined>(undefined);
+    const { mutateAsync, error, isPending } = useMutation({
+        mutationFn: ({ phone, idempotencyKey }: { phone: string; idempotencyKey: string }) =>
+            callContact(id, phone, idempotencyKey),
+        retry: (failureCount, error) => !isApiProblem(error) && failureCount < 1,
+        onSuccess: setLast,
+    });
+
+    const call = useCallback(
+        async (phone: string): Promise<void> => {
+            const idempotencyKey = newIdempotencyKey();
+
+            try {
+                await mutateAsync({ phone, idempotencyKey });
+            } catch {
+                // Surfaced through `error`.
+            }
+        },
+        [mutateAsync],
+    );
+
+    return { call, last, error, isPending };
+}
