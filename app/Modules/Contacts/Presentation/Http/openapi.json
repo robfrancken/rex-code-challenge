@@ -242,7 +242,7 @@
           "409": {
             "description": "`idempotency_request_in_progress`: a request with the same Idempotency-Key is still being processed. Retry after the `Retry-After` delay.",
             "headers": {
-              "Retry-After": { "description": "Seconds to wait before retrying.", "schema": { "type": "string" } }
+              "Retry-After": { "description": "Seconds to wait before retrying.", "schema": { "type": "integer", "minimum": 0 } }
             },
             "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
           },
@@ -267,7 +267,7 @@
         "type": "apiKey",
         "in": "cookie",
         "name": "laravel-session",
-        "description": "Session cookie issued by POST /login."
+        "description": "Session cookie issued by POST /login. The cookie name comes from config('session.cookie'), so it depends on the deployment; `laravel-session` is the default here."
       },
       "xsrfHeader": {
         "type": "apiKey",
@@ -324,7 +324,7 @@
       "TooManyRequests": {
         "description": "`too_many_requests`: rate limit exceeded (60 per minute per user on /api/v1; the login limiter on /login).",
         "headers": {
-          "Retry-After": { "description": "Seconds until the limit resets.", "schema": { "type": "string" } }
+          "Retry-After": { "description": "Seconds until the limit resets.", "schema": { "type": "integer", "minimum": 0 } }
         },
         "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
       },
@@ -406,6 +406,7 @@
           "data": { "type": "array", "items": { "$ref": "#/components/schemas/Contact" } },
           "links": {
             "type": "object",
+            "required": ["first", "last", "prev", "next"],
             "properties": {
               "first": { "type": ["string", "null"] },
               "last": { "type": ["string", "null"] },
@@ -415,6 +416,7 @@
           },
           "meta": {
             "type": "object",
+            "required": ["current_page", "from", "last_page", "links", "path", "per_page", "to", "total"],
             "properties": {
               "current_page": { "type": "integer" },
               "from": { "type": ["integer", "null"] },
@@ -427,6 +429,7 @@
                 "type": "array",
                 "items": {
                   "type": "object",
+                  "required": ["url", "label", "active"],
                   "properties": {
                     "url": { "type": ["string", "null"] },
                     "label": { "type": "string" },
