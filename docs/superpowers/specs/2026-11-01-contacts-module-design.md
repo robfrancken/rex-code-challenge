@@ -176,7 +176,8 @@ The routes follow Laravel's RESTful resource conventions (Rob's decision; amende
 **Output:** contacts are rendered with Laravel API Resources (`ContactResource`, and its collection with pagination meta).
 
 **Idempotency-Key middleware:**
-- It applies to the call endpoint only. PUT and DELETE are idempotent by design.
+- It applies to the two non-idempotent endpoints: `POST /contacts` (create) and `POST /contacts/{contact}/calls`. PUT and DELETE are idempotent by design.
+- A replay returns the original status, body, and only the allowlisted headers `Content-Type` and `Location`. It never returns `Set-Cookie`.
 - It stores the first **2xx** response in the cache, keyed by the user, the route and the key, for 24 hours. A retry with the same key returns the stored response.
 - It never stores 4xx or 5xx responses, including the 502 for `Failed`, so a corrected or retried request can still succeed.
 - It holds a cache lock while the first request runs.
