@@ -41,6 +41,14 @@ it('rejects a cursor with the wrong parameters', function (array $parameters): v
         'id' => 'abc',
     ]],
     'missing id' => [['name' => 'Jane']],
+    'oversized name' => [[
+        'name' => str_repeat('a', 256),
+        'id' => 'abc',
+    ]],
+    'oversized id' => [[
+        'name' => 'Jane',
+        'id' => str_repeat('a', 37),
+    ]],
     'numeric id' => [[
         'name' => 'Jane',
         'id' => 5,
@@ -58,4 +66,32 @@ it('reports the cursor message', function (): void {
     $validator = Validator::make(['cursor' => 'garbage'], ['cursor' => [new ValidContactCursor]]);
 
     expect($validator->errors()->first('cursor'))->toBe('The cursor is not a valid page cursor.');
+});
+
+it('rejects a cursor without a boolean direction flag', function (mixed $flag): void {
+    $encoded = rtrim(strtr(base64_encode((string) json_encode([
+        'name' => 'Jane',
+        'id' => 'abc',
+        '_pointsToNextItems' => $flag,
+    ])), '+/', '-_'), '=');
+
+    expect(cursorPasses($encoded))->toBeFalse();
+})->with([
+    'string' => ['yes'],
+    'integer' => [1],
+]);
+
+it('rejects a cursor with no direction flag', function (): void {
+    $encoded = rtrim(strtr(base64_encode((string) json_encode([
+        'name' => 'Jane',
+        'id' => 'abc',
+    ])), '+/', '-_'), '=');
+
+    expect(cursorPasses($encoded))->toBeFalse();
+});
+
+it('rejects a non-string cursor', function (): void {
+    $validator = Validator::make(['cursor' => ['x']], ['cursor' => [new ValidContactCursor]]);
+
+    expect($validator->passes())->toBeFalse();
 });

@@ -11,12 +11,15 @@ use App\Modules\Contacts\Application\Actions\SearchContacts;
 use App\Modules\Contacts\Application\Actions\UpsertContact;
 use App\Modules\Contacts\Application\Assemblers\ContactDataFromRequest;
 use App\Modules\Contacts\Application\Assemblers\SearchContactsDataFromRequest;
+use App\Modules\Contacts\Domain\Models\Contact;
 use App\Modules\Contacts\Domain\ValueObjects\ContactId;
 use App\Modules\Contacts\Presentation\Http\Resources\ContactResource;
+use Illuminate\Contracts\Pagination\CursorPaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Illuminate\Pagination\AbstractCursorPaginator;
 
 final class ContactController extends Controller
 {
@@ -59,7 +62,10 @@ final class ContactController extends Controller
         SearchContactsDataFromRequest $assembler,
         SearchContacts $action,
     ): AnonymousResourceCollection {
-        return ContactResource::collection($action->handle($assembler->assemble($request)));
+        /** @var CursorPaginator<int, Contact>&AbstractCursorPaginator<int, Contact> $page */
+        $page = $action->handle($assembler->assemble($request));
+
+        return ContactResource::collection($page->withQueryString());
     }
 
     public function destroy(

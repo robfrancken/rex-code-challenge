@@ -27,7 +27,7 @@ final class SearchContactsValidator
             'phone' => ['nullable', 'string', 'max:25', 'regex:/^\+?[\s\-(]*[0-9][0-9\s\-()]*$/'],
             'email_domain' => ['nullable', 'string', 'max:253'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
-            'cursor' => ['nullable', 'string', 'max:512', new ValidContactCursor],
+            'cursor' => ['nullable', 'string', 'max:2048', new ValidContactCursor],
         ])->validate();
 
         if (isset($validated['email_domain'])) {

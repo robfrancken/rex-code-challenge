@@ -15,6 +15,10 @@ final class ValidContactCursor implements ValidationRule
 {
     private const array PARAMETERS = ['id', 'name'];
 
+    private const int MAX_NAME_LENGTH = 255;
+
+    private const int MAX_ID_LENGTH = 36;
+
     public function validate(
         string $attribute,
         mixed $value,
@@ -36,7 +40,10 @@ final class ValidContactCursor implements ValidationRule
         ksort($parameters);
 
         return array_keys($parameters) === self::PARAMETERS
+            && is_bool($cursor->pointsToNextItems())
             && is_string($parameters['name'])
-            && is_string($parameters['id']);
+            && mb_strlen($parameters['name']) <= self::MAX_NAME_LENGTH
+            && is_string($parameters['id'])
+            && strlen($parameters['id']) <= self::MAX_ID_LENGTH;
     }
 }

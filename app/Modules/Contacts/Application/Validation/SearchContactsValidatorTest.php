@@ -41,7 +41,7 @@ it('rejects invalid filters', function (
     'phone not numeric' => [['phone' => 'abc'], 'phone'],
     'q too long' => [['q' => str_repeat('a', 256)], 'q'],
     'cursor garbage' => [['cursor' => 'garbage'], 'cursor'],
-    'cursor too long' => [['cursor' => str_repeat('a', 513)], 'cursor'],
+    'cursor too long' => [['cursor' => str_repeat('a', 2049)], 'cursor'],
 ]);
 
 it('ignores the removed page parameter', function (): void {

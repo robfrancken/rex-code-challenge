@@ -142,7 +142,7 @@
             "name": "cursor",
             "in": "query",
             "description": "Opaque cursor from `meta.next_cursor` or `meta.prev_cursor` of an earlier response. A malformed cursor is a 422 `validation_failed` on `cursor`.",
-            "schema": { "type": "string", "maxLength": 512 }
+            "schema": { "type": "string", "maxLength": 2048 }
           }
         ],
         "responses": {

@@ -109,6 +109,50 @@ it('searches the index with q', function (): void {
         ->assertJsonMissingPath('meta.total');
 })->group('fulltext');
 
+it('keeps q and per_page in the cursor links with a single cursor parameter', function (): void {
+    foreach (range(1, 5) as $i) {
+        ContactFactory::new()->create(['name' => "Smith {$i}"]);
+    }
+    ContactFactory::new()->create(['name' => 'Rex Carter']);
+
+    $first = $this->getJson(route('contacts.index', [
+        'q' => 'smi',
+        'per_page' => 2,
+    ]))->assertOk();
+    $next = (string) $first->json('links.next');
+    parse_str((string) parse_url($next, PHP_URL_QUERY), $query);
+
+    expect($query)->toMatchArray([
+        'q' => 'smi',
+        'per_page' => '2',
+    ])
+        ->and(substr_count($next, 'cursor='))->toBe(1);
+
+    $second = $this->getJson($next)->assertOk();
+    $afterSecond = (string) $second->json('links.next');
+
+    expect($second->json('data.0.name'))->toBe('Smith 3')
+        ->and(substr_count($afterSecond, 'cursor='))->toBe(1)
+        ->and($afterSecond)->toContain('q=smi');
+})->group('fulltext');
+
+it('pages past a contact whose name makes a long cursor', function (): void {
+    ContactFactory::new()->create(['name' => 'A'.str_repeat('漢', 120)]);
+    ContactFactory::new()->create(['name' => 'Zed']);
+
+    $first = $this->getJson(route('contacts.index', ['per_page' => 1]))->assertOk();
+    $cursor = (string) $first->json('meta.next_cursor');
+
+    expect(strlen($cursor))->toBeGreaterThan(512);
+
+    $this->getJson(route('contacts.index', [
+        'per_page' => 1,
+        'cursor' => $cursor,
+    ]))
+        ->assertOk()
+        ->assertJsonPath('data.0.name', 'Zed');
+});
+
 it('rejects a malformed cursor with 422 validation_failed', function (): void {
     $this->getJson(route('contacts.index', ['cursor' => 'garbage']))
         ->assertUnprocessable()

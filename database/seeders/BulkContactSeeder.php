@@ -84,7 +84,7 @@ final class BulkContactSeeder extends Seeder
 
         for ($i = 0; $i < $size; $i++) {
             $id = strtolower($faker->uuid());
-            $name = $faker->name();
+            $name = $faker->firstName().' '.$faker->lastName();
 
             $contacts[] = [
                 'id' => $id,
