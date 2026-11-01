@@ -35,15 +35,8 @@ it('treats blank filters as absent', function (): void {
 });
 
 it('rejects a phone filter that has no digits', function (): void {
-    try {
-        app(SearchContactsDataFromRequest::class)->assemble(Request::create('/', 'GET', ['phone' => 'abc']));
-    } catch (ValidationException $exception) {
-        expect($exception->errors())->toHaveKey('phone');
-
-        return;
-    }
-
-    $this->fail('Expected a ValidationException.');
+    expect(fn () => app(SearchContactsDataFromRequest::class)->assemble(Request::create('/', 'GET', ['phone' => 'abc'])))
+        ->toFailValidationOn('phone');
 });
 
 it('strips formatting from the phone', function (): void {

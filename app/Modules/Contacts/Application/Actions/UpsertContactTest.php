@@ -4,31 +4,12 @@ declare(strict_types=1);
 
 use App\Modules\Contacts\Application\Actions\GetContact;
 use App\Modules\Contacts\Application\Actions\UpsertContact;
-use App\Modules\Contacts\Application\DTOs\UpsertContactData;
 use App\Modules\Contacts\Domain\Models\Contact;
 use App\Modules\Contacts\Domain\Models\ContactEmail;
 use App\Modules\Contacts\Domain\Models\ContactPhone;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-
-/**
- * @param  list<string>  $emails
- * @param  list<string>  $phones
- */
-function upsertData(
-    string $id,
-    string $name = 'Jane',
-    array $emails = ['jane@example.com'],
-    array $phones = ['+61412345678'],
-): UpsertContactData {
-    return UpsertContactData::fromValidated([
-        'id' => $id,
-        'name' => $name,
-        'emails' => $emails,
-        'phones' => $phones,
-    ]);
-}
 
 it('creates a contact with emails and phones', function (): void {
     $id = (string) Str::uuid();

@@ -2,14 +2,37 @@
 
 declare(strict_types=1);
 
+use App\Modules\Contacts\Application\Actions\SearchContacts;
+use App\Modules\Contacts\Application\DTOs\SearchContactsData;
+use App\Modules\Contacts\Application\DTOs\UpsertContactData;
 use App\Modules\Contacts\Domain\Telephony\CallOutcome;
 use App\Modules\Contacts\Domain\Telephony\TelephonyGateway;
 use App\Modules\Contacts\Domain\ValueObjects\PhoneNumber;
 use Database\Factories\Contacts\ContactFactory;
 use Database\Factories\Contacts\ContactPhoneFactory;
+use Illuminate\Validation\ValidationException;
+use Pest\Expectation;
 use Tests\TestCase;
 
 pest()->extend(TestCase::class)->in('../app', 'Arch');
+
+/**
+ * Asserts that the closure under test throws a ValidationException with an error on $key,
+ * and, when $message is given, that one of that key's messages contains it.
+ */
+expect()->extend('toFailValidationOn', function (
+    string $key,
+    ?string $message = null,
+): Expectation {
+    /** @var Expectation<callable(): mixed> $this */
+    return $this->toThrow(function (ValidationException $exception) use ($key, $message): void {
+        expect($exception->errors())->toHaveKey($key);
+
+        if ($message !== null) {
+            expect(implode("\n", $exception->errors()[$key]))->toContain($message);
+        }
+    });
+});
 
 /**
  * Binds a TelephonyGateway that always returns $outcome and records every number dialled.
@@ -51,15 +74,47 @@ function contactWithPhones(string ...$phones): string
 }
 
 /**
- * A valid upsert request body.
+ * A valid contact payload (the upsert request body, without the id), with any keys replaced by $overrides.
  *
- * @return array{name: string, emails: list<string>, phones: list<string>}
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
  */
-function contactPayload(): array
+function contactPayload(array $overrides = []): array
 {
     return [
         'name' => 'Jane Citizen',
         'emails' => ['jane@rex.com.au'],
         'phones' => ['+61412345678'],
+        ...$overrides,
     ];
+}
+
+/**
+ * Upsert input as the validator would hand it to the DTO.
+ *
+ * @param  list<string>  $emails
+ * @param  list<string>  $phones
+ */
+function upsertData(
+    string $id,
+    string $name = 'Jane',
+    array $emails = ['jane@example.com'],
+    array $phones = ['+61412345678'],
+): UpsertContactData {
+    return UpsertContactData::fromValidated([
+        'id' => $id,
+        'name' => $name,
+        'emails' => $emails,
+        'phones' => $phones,
+    ]);
+}
+
+/**
+ * The names on the first page of a contact search, in result order.
+ *
+ * @return list<string>
+ */
+function searchNames(SearchContactsData $data): array
+{
+    return app(SearchContacts::class)->handle($data)->getCollection()->pluck('name')->all();
 }

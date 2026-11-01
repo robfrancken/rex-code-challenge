@@ -11,7 +11,6 @@ use App\Modules\Contacts\Domain\ValueObjects\PhoneNumber;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 
 it('returns the outcome of the call', function (CallOutcome $outcome): void {
     bindGateway($outcome);
@@ -28,16 +27,9 @@ it('throws TelephonyFailed when the provider fails', function (): void {
     bindGateway(CallOutcome::Failed);
     $id = contactWithPhones('+61412345678');
 
-    try {
-        app(CallContact::class)->handle(new CallContactData($id, null));
-    } catch (TelephonyFailed $exception) {
-        expect($exception->problemCode())->toBe('telephony_failed')
-            ->and($exception->getMessage())->toBe('The telephony provider failed to place the call to +61412345678.');
-
-        return;
-    }
-
-    $this->fail('Expected TelephonyFailed.');
+    expect(fn () => app(CallContact::class)->handle(new CallContactData($id, null)))
+        ->toThrow(fn (TelephonyFailed $exception) => expect($exception->problemCode())->toBe('telephony_failed')
+            ->and($exception->getMessage())->toBe('The telephony provider failed to place the call to +61412345678.'));
 });
 
 it('logs a warning with only the contact id when the provider fails', function (): void {
@@ -75,16 +67,10 @@ it('rejects a valid phone that is not the contact\'s and never dials', function 
     $gateway = bindGateway(CallOutcome::Answered);
     $id = contactWithPhones('+61412345678');
 
-    try {
-        app(CallContact::class)->handle(new CallContactData($id, PhoneNumber::fromString('+61498765432')));
-    } catch (ValidationException $exception) {
-        expect($exception->errors())->toHaveKey('phone')
-            ->and($gateway->dialled)->toBe([]);
+    expect(fn () => app(CallContact::class)->handle(new CallContactData($id, PhoneNumber::fromString('+61498765432'))))
+        ->toFailValidationOn('phone');
 
-        return;
-    }
-
-    $this->fail('Expected a ValidationException.');
+    expect($gateway->dialled)->toBe([]);
 });
 
 it('throws ContactNotFound for an unknown contact', function (): void {
@@ -97,29 +83,17 @@ it('rejects a call with no phone given when the contact has no phones', function
     $gateway = bindGateway(CallOutcome::Answered);
     $id = contactWithPhones();
 
-    try {
-        app(CallContact::class)->handle(new CallContactData($id, null));
-    } catch (ValidationException $exception) {
-        expect($exception->errors()['phone'])->toBe(['The contact has no phone numbers.'])
-            ->and($gateway->dialled)->toBe([]);
+    expect(fn () => app(CallContact::class)->handle(new CallContactData($id, null)))
+        ->toFailValidationOn('phone', 'The contact has no phone numbers.');
 
-        return;
-    }
-
-    $this->fail('Expected a ValidationException.');
+    expect($gateway->dialled)->toBe([]);
 });
 
 it('treats a non-uuid id as not found without querying', function (): void {
     bindGateway(CallOutcome::Answered);
     DB::enableQueryLog();
 
-    try {
-        app(CallContact::class)->handle(new CallContactData('abc', null));
-    } catch (ContactNotFound) {
-        expect(DB::getQueryLog())->toBe([]);
+    expect(fn () => app(CallContact::class)->handle(new CallContactData('abc', null)))->toThrow(ContactNotFound::class);
 
-        return;
-    }
-
-    $this->fail('Expected ContactNotFound.');
+    expect(DB::getQueryLog())->toBe([]);
 });

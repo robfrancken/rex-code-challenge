@@ -25,27 +25,14 @@ it('returns the contact with its relations loaded', function (): void {
 });
 
 it('throws ContactNotFound for an unknown id', function (): void {
-    try {
-        app(GetContact::class)->handle((string) Str::uuid());
-    } catch (ContactNotFound $exception) {
-        expect($exception->problemCode())->toBe('contact_not_found');
-
-        return;
-    }
-
-    $this->fail('Expected ContactNotFound.');
+    expect(fn () => app(GetContact::class)->handle((string) Str::uuid()))
+        ->toThrow(fn (ContactNotFound $exception) => expect($exception->problemCode())->toBe('contact_not_found'));
 });
 
 it('treats a non-uuid id as not found without querying', function (): void {
     DB::enableQueryLog();
 
-    try {
-        app(GetContact::class)->handle('abc');
-    } catch (ContactNotFound) {
-        expect(DB::getQueryLog())->toBe([]);
+    expect(fn () => app(GetContact::class)->handle('abc'))->toThrow(ContactNotFound::class);
 
-        return;
-    }
-
-    $this->fail('Expected ContactNotFound.');
+    expect(DB::getQueryLog())->toBe([]);
 });

@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Modules\Contacts\Application\Assemblers\SearchContactsDataFromCli;
-use Illuminate\Validation\ValidationException;
 
 it('maps CLI option names onto the DTO', function (): void {
     $data = app(SearchContactsDataFromCli::class)->assemble([
@@ -33,13 +32,5 @@ it('uses defaults when options are absent', function (): void {
 });
 
 it('rejects a phone filter that has no digits', function (): void {
-    try {
-        app(SearchContactsDataFromCli::class)->assemble(['phone' => 'abc']);
-    } catch (ValidationException $exception) {
-        expect($exception->errors())->toHaveKey('phone');
-
-        return;
-    }
-
-    $this->fail('Expected a ValidationException.');
+    expect(fn () => app(SearchContactsDataFromCli::class)->assemble(['phone' => 'abc']))->toFailValidationOn('phone');
 });

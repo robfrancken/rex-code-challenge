@@ -9,14 +9,6 @@ use Database\Factories\Contacts\ContactEmailFactory;
 use Database\Factories\Contacts\ContactFactory;
 use Database\Factories\Contacts\ContactPhoneFactory;
 
-/**
- * @return list<string>
- */
-function searchNames(SearchContactsData $data): array
-{
-    return app(SearchContacts::class)->handle($data)->getCollection()->pluck('name')->all();
-}
-
 it('finds by name case-insensitively', function (): void {
     ContactFactory::new()->create(['name' => 'Jane Smith']);
     ContactFactory::new()->create(['name' => 'Bob']);

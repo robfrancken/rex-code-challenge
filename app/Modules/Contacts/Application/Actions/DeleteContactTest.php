@@ -34,13 +34,7 @@ it('throws ContactNotFound when deleting twice', function (): void {
 it('treats a non-uuid id as not found without querying', function (): void {
     DB::enableQueryLog();
 
-    try {
-        app(DeleteContact::class)->handle('abc');
-    } catch (ContactNotFound) {
-        expect(DB::getQueryLog())->toBe([]);
+    expect(fn () => app(DeleteContact::class)->handle('abc'))->toThrow(ContactNotFound::class);
 
-        return;
-    }
-
-    $this->fail('Expected ContactNotFound.');
+    expect(DB::getQueryLog())->toBe([]);
 });
