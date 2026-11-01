@@ -11,7 +11,7 @@ while IFS= read -r test_file; do
   if ! bash "$test_file"; then
     status=1
   fi
-done < <(find "$claude_dir" -name '*.test.sh' | sort)
+done < <(find "$claude_dir" -path "$claude_dir/worktrees" -prune -o -name '*.test.sh' -print | sort)
 
 if [ "$found" -eq 0 ]; then
   echo "No *.test.sh files found under $claude_dir" >&2
