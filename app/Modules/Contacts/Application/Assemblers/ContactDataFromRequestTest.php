@@ -17,7 +17,7 @@ it('assembles data from a valid request', function (): void {
 
     $data = app(ContactDataFromRequest::class)->assemble($request, $id);
 
-    expect($data->id)->toBe($id)
+    expect($data->id->value)->toBe($id)
         ->and($data->emails[0]->value)->toBe('jane@example.com');
 });
 

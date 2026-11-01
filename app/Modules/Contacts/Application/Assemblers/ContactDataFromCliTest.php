@@ -9,7 +9,7 @@ use Illuminate\Validation\ValidationException;
 it('generates a uuid when no id is given', function (): void {
     $data = app(ContactDataFromCli::class)->assemble(null, 'Jane', ['jane@example.com'], ['+61412345678']);
 
-    expect(Str::isUuid($data->id))->toBeTrue();
+    expect($data->id->value)->toBeUuid();
 });
 
 it('keeps a given id', function (): void {
@@ -17,7 +17,13 @@ it('keeps a given id', function (): void {
 
     $data = app(ContactDataFromCli::class)->assemble($id, 'Jane', ['jane@example.com'], ['+61412345678']);
 
-    expect($data->id)->toBe($id);
+    expect($data->id->value)->toBe($id);
+});
+
+it('trims the name', function (): void {
+    $data = app(ContactDataFromCli::class)->assemble(null, '  Jane ', ['jane@example.com'], ['+61412345678']);
+
+    expect($data->name)->toBe('Jane');
 });
 
 it('throws a validation exception for invalid input', function (): void {

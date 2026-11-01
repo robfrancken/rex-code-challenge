@@ -6,7 +6,7 @@ namespace App\Modules\Contacts\Application\Actions;
 
 use App\Modules\Contacts\Application\Exceptions\ContactNotFound;
 use App\Modules\Contacts\Domain\Models\Contact;
-use Illuminate\Support\Str;
+use App\Modules\Contacts\Domain\ValueObjects\ContactId;
 
 final class GetContact
 {
@@ -15,10 +15,8 @@ final class GetContact
      */
     public function handle(string $id): Contact
     {
-        if (! Str::isUuid($id)) {
-            throw ContactNotFound::withId($id);
-        }
+        $contactId = ContactId::tryFromString($id) ?? throw ContactNotFound::withId($id);
 
-        return Contact::query()->with(['emails', 'phones'])->find($id) ?? throw ContactNotFound::withId($id);
+        return Contact::query()->with(['emails', 'phones'])->find($contactId->value) ?? throw ContactNotFound::withId($id);
     }
 }

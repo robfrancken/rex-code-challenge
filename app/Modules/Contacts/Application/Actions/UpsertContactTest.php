@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Modules\Contacts\Application\Actions\GetContact;
 use App\Modules\Contacts\Application\Actions\UpsertContact;
 use App\Modules\Contacts\Application\DTOs\UpsertContactData;
 use App\Modules\Contacts\Domain\Models\Contact;
 use App\Modules\Contacts\Domain\Models\ContactEmail;
 use App\Modules\Contacts\Domain\Models\ContactPhone;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -101,3 +103,89 @@ it('handles a concurrent first create', function (): void {
         ->and($result->contact->name)->toBe('Jane')
         ->and(ContactEmail::query()->count())->toBe(1);
 });
+
+it('handles a first create that races another request', function (): void {
+    $id = (string) Str::uuid();
+    $raced = false;
+    DB::listen(function (QueryExecuted $query) use ($id, &$raced): void {
+        if (! $raced && str_starts_with($query->sql, 'select') && str_contains($query->sql, 'from "contacts"')) {
+            $raced = true;
+            DB::table('contacts')->insert([
+                'id' => $id,
+                'name' => 'Raced',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+    });
+
+    $result = app(UpsertContact::class)->handle(upsertData($id, 'Jane'));
+
+    expect($result->created)->toBeFalse()
+        ->and($result->contact->name)->toBe('Jane')
+        ->and(Contact::query()->count())->toBe(1);
+});
+
+it('leaves an existing contact unchanged when a later step fails', function (): void {
+    $id = (string) Str::uuid();
+    app(UpsertContact::class)->handle(upsertData($id, 'Jane', ['old@x.com'], ['+61412345678']));
+    DB::listen(function (QueryExecuted $query): void {
+        if (str_starts_with($query->sql, 'insert') && str_contains($query->sql, 'contact_phones')) {
+            throw new RuntimeException('Simulated failure while syncing phones.');
+        }
+    });
+
+    expect(fn () => app(UpsertContact::class)->handle(upsertData($id, 'Janet', ['new@x.com'], ['+64211234567'])))
+        ->toThrow(RuntimeException::class, 'Simulated failure while syncing phones.');
+
+    expect(Contact::query()->findOrFail($id)->name)->toBe('Jane')
+        ->and(ContactEmail::query()->pluck('email')->all())->toBe(['old@x.com'])
+        ->and(ContactPhone::query()->pluck('phone')->all())->toBe(['+61412345678']);
+});
+
+it('creates nothing when a later step of a first create fails', function (): void {
+    $id = (string) Str::uuid();
+    DB::listen(function (QueryExecuted $query): void {
+        if (str_starts_with($query->sql, 'insert') && str_contains($query->sql, 'contact_phones')) {
+            throw new RuntimeException('Simulated failure while syncing phones.');
+        }
+    });
+
+    expect(fn () => app(UpsertContact::class)->handle(upsertData($id)))
+        ->toThrow(RuntimeException::class, 'Simulated failure while syncing phones.');
+
+    $this->assertDatabaseMissing('contacts', ['id' => $id]);
+    $this->assertDatabaseCount('contact_emails', 0);
+});
+
+it('treats an uppercase id as the same contact as its lowercase form', function (): void {
+    $id = (string) Str::uuid();
+
+    $first = app(UpsertContact::class)->handle(upsertData(strtoupper($id), 'Jane'));
+    $second = app(UpsertContact::class)->handle(upsertData($id, 'Janet'));
+
+    expect($first->contact->id)->toBe($id)
+        ->and($second->created)->toBeFalse()
+        ->and(app(GetContact::class)->handle($id)->name)->toBe('Janet')
+        ->and(Contact::query()->count())->toBe(1);
+});
+
+it('touches the contact when only its emails or phones change', function (array $changes): void {
+    $id = (string) Str::uuid();
+    $this->travelTo('2026-11-01 10:00:00');
+    app(UpsertContact::class)->handle(upsertData($id, 'Jane', ['a@x.com'], ['+61412345678']));
+    $this->travelTo('2026-11-01 10:05:00');
+
+    app(UpsertContact::class)->handle(upsertData($id, 'Jane', ...$changes));
+
+    expect(Contact::query()->findOrFail($id)->updated_at?->toDateTimeString())->toBe('2026-11-01 10:05:00');
+})->with([
+    'an email added' => [[
+        'emails' => ['a@x.com', 'b@x.com'],
+        'phones' => ['+61412345678'],
+    ]],
+    'a phone replaced' => [[
+        'emails' => ['a@x.com'],
+        'phones' => ['+64211234567'],
+    ]],
+]);

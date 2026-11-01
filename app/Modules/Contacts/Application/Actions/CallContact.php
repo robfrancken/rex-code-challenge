@@ -12,10 +12,10 @@ use App\Modules\Contacts\Domain\Models\Contact;
 use App\Modules\Contacts\Domain\Models\ContactPhone;
 use App\Modules\Contacts\Domain\Telephony\CallOutcome;
 use App\Modules\Contacts\Domain\Telephony\TelephonyGateway;
+use App\Modules\Contacts\Domain\ValueObjects\ContactId;
 use App\Modules\Contacts\Domain\ValueObjects\PhoneNumber;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 final readonly class CallContact
@@ -29,11 +29,9 @@ final readonly class CallContact
      */
     public function handle(CallContactData $data): CallResult
     {
-        if (! Str::isUuid($data->contactId)) {
-            throw ContactNotFound::withId($data->contactId);
-        }
+        $contactId = ContactId::tryFromString($data->contactId) ?? throw ContactNotFound::withId($data->contactId);
 
-        $contact = Contact::query()->with('phones')->find($data->contactId)
+        $contact = Contact::query()->with('phones')->find($contactId->value)
             ?? throw ContactNotFound::withId($data->contactId);
 
         $number = $this->chooseNumber($contact, $data->phone);
