@@ -31,7 +31,7 @@ export function AppShell() {
 
     return (
         <div className="bg-background flex min-h-screen">
-            <aside className="bg-card flex w-[210px] shrink-0 flex-col border-r px-3 py-4">
+            <aside className="bg-card sticky top-0 flex h-svh w-[210px] shrink-0 flex-col self-start border-r px-3 py-4">
                 <div className="flex items-center gap-2.5 px-2 pb-4 font-semibold">
                     <div className="grid size-[30px] place-items-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 text-[13px] font-bold text-white">
                         R
@@ -71,7 +71,7 @@ export function AppShell() {
                     </Button>
                 </div>
             </aside>
-            <main className="flex-1 px-7 py-6">
+            <main className="min-w-0 flex-1 px-7 py-6">
                 <Outlet />
             </main>
         </div>

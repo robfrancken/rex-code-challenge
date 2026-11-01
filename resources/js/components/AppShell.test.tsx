@@ -73,3 +73,13 @@ describe('AppShell sign out', () => {
         expect(router.state.location.pathname).toBe('/contacts');
     });
 });
+
+describe('AppShell layout', () => {
+    it('pins the sidebar to the viewport so sign-out stays visible while the content scrolls', () => {
+        renderShell();
+
+        const sidebar = screen.getByRole('button', { name: 'Sign out' }).closest('aside');
+        expect(sidebar).toHaveClass('sticky', 'top-0', 'h-svh', 'self-start');
+        expect(screen.getByRole('main')).toHaveClass('min-w-0');
+    });
+});
