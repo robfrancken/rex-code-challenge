@@ -8,7 +8,7 @@ use App\Modules\Contacts\Application\Validation\Rules\ValidPhoneNumber;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
-final class CallValidator
+final class CallContactValidator
 {
     /**
      * @param  array<string, mixed>  $input
