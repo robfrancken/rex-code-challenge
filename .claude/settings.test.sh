@@ -31,6 +31,11 @@ for rule in 'Bash(rm -r *)' 'Bash(rm -rf *)' 'Bash(npm *)' 'Bash(npx *)' 'Bash(y
   expect_equals "deny contains $rule" true "$has"
 done
 
+for rule in 'Edit(/pnpm-workspace.yaml)' 'Edit(/.npmrc)' 'Edit(/.claude/settings.json)' 'Edit(/.claude/hooks/**)'; do
+  has="$(jq -r --arg rule "$rule" '(.permissions.ask // []) | index($rule) != null' "$settings" 2>/dev/null || echo false)"
+  expect_equals "ask contains $rule" true "$has"
+done
+
 plugin="$(jq -r '.enabledPlugins["superpowers@claude-plugins-official"] // empty' "$settings" 2>/dev/null || true)"
 expect_equals 'superpowers plugin enabled' true "$plugin"
 

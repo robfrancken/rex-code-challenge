@@ -32,6 +32,12 @@
       "Bash(composer dump-autoload*)",
       "Bash(.claude/hooks/run-tests.sh)"
     ],
+    "ask": [
+      "Edit(/pnpm-workspace.yaml)",
+      "Edit(/.npmrc)",
+      "Edit(/.claude/settings.json)",
+      "Edit(/.claude/hooks/**)"
+    ],
     "deny": [
       "Bash(git push --force*)",
       "Bash(git push * --force*)",
