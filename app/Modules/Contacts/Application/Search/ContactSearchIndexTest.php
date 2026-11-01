@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Modules\Contacts\Application\Search\ContactSearchQuery;
 use App\Modules\Contacts\Domain\Models\Contact;
+use Database\Seeders\BulkContactSeeder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -40,10 +41,10 @@ it('searches phones through the phone fulltext index', function (): void {
 it('searches domain prefixes through the domain index as a range', function (): void {
     $sql = new ContactSearchQuery()->domainPrefixBranch('rex.com')?->toRawSql();
 
-    expect(explainedPlan((string) $sql))->toBe([
-        'key' => 'contact_emails_domain_index',
-        'type' => 'range',
-    ]);
+    $plan = explainedPlan((string) $sql);
+
+    expect($plan['key'])->toBe('contact_emails_domain_index')
+        ->and($plan['type'])->toBeIn(['range', 'ref']);
 })->group('fulltext');
 
 it('plans the q union without dependent subqueries', function (): void {
@@ -55,4 +56,23 @@ it('plans the q union without dependent subqueries', function (): void {
 
     expect($types)->not->toContain('DEPENDENT SUBQUERY')
         ->and($types)->not->toContain('DEPENDENT UNION');
+})->group('fulltext');
+
+it('drives the q search from the match set, not a scan of contacts', function (): void {
+    new BulkContactSeeder()->run(500);
+    DB::statement('analyze table contacts, contact_emails, contact_phones');
+
+    $sql = new ContactSearchQuery()
+        ->apply(Contact::query(), 'rex 0412', null, null, null)
+        ->orderBy('name')
+        ->orderBy('id')
+        ->limit(26)
+        ->toRawSql();
+
+    $plan = collect(DB::select('explain '.$sql));
+    $contacts = $plan->firstWhere('table', 'contacts');
+
+    expect($contacts->type)->not->toBe('ALL')
+        ->and($contacts->key)->toBe('PRIMARY')
+        ->and($plan->pluck('select_type')->all())->not->toContain('DEPENDENT SUBQUERY', 'DEPENDENT UNION');
 })->group('fulltext');

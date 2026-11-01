@@ -18,8 +18,9 @@ final class ContactSearchQuery
     private const string LIKE_ESCAPE = '!';
 
     /**
-     * q is the union of the branches that apply, as a derived table inside whereIn. Left bare, MySQL
-     * plans IN (union) as a dependent subquery, which evaluates MATCH per row and returns wrong rows.
+     * q is the distinct union of the branches that apply, joined as a derived table so the small match
+     * set drives the query. As IN (union) MySQL either scans contacts and probes the matches per row or
+     * plans a dependent subquery, which evaluates MATCH per row and returns wrong rows.
      *
      * @param  Builder<Contact>  $contacts
      * @return Builder<Contact>
@@ -44,7 +45,9 @@ final class ContactSearchQuery
                 $union->union($branch);
             }
 
-            $contacts->whereIn('contacts.id', fn ($matches) => $matches->select('matches.id')->fromSub($union, 'matches'));
+            $contacts
+                ->select('contacts.*')
+                ->joinSub($union, 'search_matches', 'search_matches.contact_id', '=', 'contacts.id');
         }
 
         $filters = [
@@ -71,7 +74,7 @@ final class ContactSearchQuery
             return null;
         }
 
-        $branch = Contact::query()->select('contacts.id')->toBase();
+        $branch = Contact::query()->select('contacts.id as contact_id')->toBase();
 
         if (SearchTerms::isFullTextName($cleaned)) {
             return $branch->whereFullText('contacts.name', '"'.$cleaned.'"', ['mode' => 'boolean']);
@@ -91,7 +94,7 @@ final class ContactSearchQuery
             return null;
         }
 
-        return ContactPhone::query()->select('contact_phones.contact_id')->toBase()
+        return ContactPhone::query()->select('contact_phones.contact_id as contact_id')->toBase()
             ->whereFullText('contact_phones.phone', '"'.$digits.'"', ['mode' => 'boolean']);
     }
 
@@ -106,7 +109,7 @@ final class ContactSearchQuery
             return null;
         }
 
-        return ContactEmail::query()->select('contact_emails.contact_id')->toBase()
+        return ContactEmail::query()->select('contact_emails.contact_id as contact_id')->toBase()
             ->whereRaw('contact_emails.domain like ? escape ?', [$this->escapeLike($prefix).'%', self::LIKE_ESCAPE]);
     }
 
@@ -115,7 +118,7 @@ final class ContactSearchQuery
      */
     public function domainExactBranch(string $domain): QueryBuilder
     {
-        return ContactEmail::query()->select('contact_emails.contact_id')->toBase()
+        return ContactEmail::query()->select('contact_emails.contact_id as contact_id')->toBase()
             ->where('contact_emails.domain', $domain);
     }
 

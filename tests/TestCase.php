@@ -46,6 +46,8 @@ abstract class TestCase extends BaseTestCase
      */
     private function truncateFulltextTables(): void
     {
+        $previous = (int) DB::selectOne('select @@session.innodb_ft_enable_stopword as value')->value;
+
         DB::statement('set session innodb_ft_enable_stopword = off');
 
         try {
@@ -55,7 +57,7 @@ abstract class TestCase extends BaseTestCase
                 }
             });
         } finally {
-            DB::statement('set session innodb_ft_enable_stopword = on');
+            DB::statement('set session innodb_ft_enable_stopword = ?', [$previous]);
         }
     }
 }
