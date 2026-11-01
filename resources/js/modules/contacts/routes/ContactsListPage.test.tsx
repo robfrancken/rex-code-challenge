@@ -181,6 +181,19 @@ describe('ContactsListPage', () => {
         expect(router.state.location.search).toBe('?q=smi');
     });
 
+    it('disables Previous and Next while the next page is loading', async () => {
+        vi.mocked(searchContacts).mockResolvedValueOnce(
+            makePage([chloe], { next_cursor: 'next-1' }),
+        );
+        renderList();
+        await screen.findByText('Chloe Smith');
+        vi.mocked(searchContacts).mockReturnValue(new Promise(() => undefined));
+        await userEvent.click(await screen.findByRole('button', { name: 'Next' }));
+        // The pending request keeps the previous page on screen as placeholder data.
+        expect(await screen.findByRole('button', { name: 'Next' })).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
+    });
+
     it('Back after Next returns to ?q=smi', async () => {
         vi.mocked(searchContacts).mockResolvedValue(makePage([chloe], { next_cursor: 'next-1' }));
         const router = renderList('/contacts?q=smi');

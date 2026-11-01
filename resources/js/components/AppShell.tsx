@@ -1,11 +1,17 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { LogOut, Menu, Users } from 'lucide-react';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { NavLink, Outlet, useNavigate } from 'react-router';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetTitle,
+    SheetTrigger,
+} from '@/components/ui/sheet';
 import { isApiProblem, problemMessage } from '@/lib/api/problem';
 import { initials } from '@/lib/format/initials';
 import { cn } from '@/lib/utils';
@@ -72,8 +78,31 @@ function SidebarContent({ onNavigate, onSignOut }: SidebarContentProps) {
     );
 }
 
+const DESKTOP_QUERY = '(min-width: 768px)';
+
+/** Closes the phone nav sheet once the viewport grows to the desktop layout (e.g. rotation). */
+function useCloseAtDesktop(close: () => void) {
+    useEffect(() => {
+        if (typeof window.matchMedia !== 'function') {
+            return;
+        }
+
+        const query = window.matchMedia(DESKTOP_QUERY);
+        const onChange = (event: MediaQueryListEvent) => {
+            if (event.matches) {
+                close();
+            }
+        };
+        query.addEventListener('change', onChange);
+
+        return () => query.removeEventListener('change', onChange);
+    }, [close]);
+}
+
 export function AppShell() {
     const [navOpen, setNavOpen] = useState(false);
+    const closeNav = useCallback(() => setNavOpen(false), []);
+    useCloseAtDesktop(closeNav);
     const navigate = useNavigate();
     const queryClient = useQueryClient();
 
@@ -101,14 +130,11 @@ export function AppShell() {
                     <Brand />
                 </div>
                 <Sheet open={navOpen} onOpenChange={setNavOpen}>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Open navigation"
-                        onClick={() => setNavOpen(true)}
-                    >
-                        <Menu className="size-5" aria-hidden />
-                    </Button>
+                    <SheetTrigger asChild>
+                        <Button variant="ghost" size="icon" aria-label="Open navigation">
+                            <Menu className="size-5" aria-hidden />
+                        </Button>
+                    </SheetTrigger>
                     <SheetContent side="left" className="w-[260px] px-3 py-4">
                         <SheetTitle className="sr-only">Navigation</SheetTitle>
                         <SheetDescription className="sr-only">
@@ -117,7 +143,7 @@ export function AppShell() {
                         <div className="px-2 pb-4">
                             <Brand />
                         </div>
-                        <SidebarContent onNavigate={() => setNavOpen(false)} onSignOut={signOut} />
+                        <SidebarContent onNavigate={closeNav} onSignOut={signOut} />
                     </SheetContent>
                 </Sheet>
             </header>

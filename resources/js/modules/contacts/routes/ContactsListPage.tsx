@@ -33,7 +33,14 @@ export function ContactsListPage() {
     const { params, query, emailDomain, hasSearch, setQuery, setEmailDomain, goToCursor, clear } =
         useContactSearchParams();
     const [pendingDelete, setPendingDelete] = useState<Contact | null>(null);
-    const { data: latest, error, isError, isPending, refetch } = useContacts(params);
+    const {
+        data: latest,
+        error,
+        isError,
+        isPending,
+        isPlaceholderData,
+        refetch,
+    } = useContacts(params);
     const data = useLastLoaded(latest);
     const isEmpty = !isError && data !== undefined && data.data.length === 0;
     const searchError = isValidationProblem(error)
@@ -111,7 +118,7 @@ export function ContactsListPage() {
                         <Button
                             variant="outline"
                             size="sm"
-                            disabled={data.meta.prev_cursor === null}
+                            disabled={isPlaceholderData || data.meta.prev_cursor === null}
                             onClick={() =>
                                 data.meta.prev_cursor && goToCursor(data.meta.prev_cursor)
                             }
@@ -121,7 +128,7 @@ export function ContactsListPage() {
                         <Button
                             variant="outline"
                             size="sm"
-                            disabled={data.meta.next_cursor === null}
+                            disabled={isPlaceholderData || data.meta.next_cursor === null}
                             onClick={() =>
                                 data.meta.next_cursor && goToCursor(data.meta.next_cursor)
                             }

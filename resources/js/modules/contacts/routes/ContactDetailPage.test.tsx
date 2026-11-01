@@ -69,6 +69,13 @@ describe('ContactDetailPage', () => {
         );
     });
 
+    it('lets long emails break and keeps the Call button and domain badge from shrinking', async () => {
+        renderDetail();
+
+        expect(await screen.findByText('chloe@rex.com.au')).toHaveClass('min-w-0', 'break-all');
+        expect(screen.getAllByRole('button', { name: /^Call/ })[0]).toHaveClass('shrink-0');
+    });
+
     it('opens Edit with the detail page as the place to return to', async () => {
         const router = renderDetail();
 

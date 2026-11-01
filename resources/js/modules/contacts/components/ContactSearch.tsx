@@ -49,12 +49,12 @@ export function ContactSearch({
                 <FieldError id={ERROR_ID} message={error} className="mt-1" />
             </div>
             {emailDomain && (
-                <span className="bg-secondary inline-flex h-9 items-center justify-between gap-1 rounded-md pr-1 pl-3 text-sm">
-                    <span className="truncate">Domain: {emailDomain}</span>
+                <span className="bg-secondary inline-flex h-9 max-w-full items-center justify-between gap-1 rounded-md pr-1 pl-3 text-sm">
+                    <span className="min-w-0 truncate">Domain: {emailDomain}</span>
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="size-7"
+                        className="size-7 shrink-0"
                         aria-label="Remove domain filter"
                         onClick={onRemoveDomain}
                     >

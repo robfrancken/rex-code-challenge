@@ -51,13 +51,13 @@ function ContactRow({ contact, onSelectDomain, onDelete }: ContactRowProps) {
                 }
             }}
         >
-            <TableCell>
+            <TableCell className="w-full max-w-0 md:w-auto md:max-w-none">
                 <div className="flex items-center gap-3">
                     <ContactAvatar id={contact.id} name={contact.name} />
-                    <div>
+                    <div className="min-w-0">
                         <Link
                             to={`/contacts/${contact.id}`}
-                            className="font-semibold hover:underline"
+                            className="block truncate font-semibold hover:underline"
                         >
                             {contact.name}
                         </Link>

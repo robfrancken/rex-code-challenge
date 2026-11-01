@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router';
 import { toast } from 'sonner';
@@ -152,5 +152,40 @@ describe('AppShell on small screens', () => {
         );
 
         await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
+    });
+
+    it('returns focus to the menu button and exposes its expanded state', async () => {
+        renderShell();
+        const button = screen.getByRole('button', { name: 'Open navigation' });
+        expect(button).toHaveAttribute('aria-expanded', 'false');
+
+        await userEvent.click(button);
+        await screen.findByRole('dialog');
+        expect(button).toHaveAttribute('aria-expanded', 'true');
+        await userEvent.keyboard('{Escape}');
+
+        await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+        expect(button).toHaveFocus();
+    });
+
+    it('closes the sheet when the viewport reaches md', async () => {
+        let notify: (event: { matches: boolean }) => void = () => undefined;
+        vi.stubGlobal(
+            'matchMedia',
+            vi.fn().mockImplementation(() => ({
+                matches: false,
+                addEventListener: (_: string, listener: typeof notify) => (notify = listener),
+                removeEventListener: vi.fn(),
+            })),
+        );
+        renderShell();
+        await userEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
+        await screen.findByRole('dialog');
+
+        act(() => notify({ matches: true }));
+
+        await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+        expect(window.matchMedia).toHaveBeenCalledWith('(min-width: 768px)');
+        vi.unstubAllGlobals();
     });
 });

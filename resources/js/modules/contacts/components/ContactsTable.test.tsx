@@ -48,4 +48,13 @@ describe('ContactsTable responsive columns', () => {
 
         expect(screen.getByRole('link', { name: 'Chloe Smith' }).closest('tr')).toHaveClass('h-14');
     });
+
+    it('truncates a long name inside its cell so the actions menu stays on screen', () => {
+        renderTable();
+
+        const link = screen.getByRole('link', { name: 'Chloe Smith' });
+        expect(link).toHaveClass('block', 'truncate');
+        expect(link.parentElement).toHaveClass('min-w-0');
+        expect(link.closest('td')).toHaveClass('max-w-0', 'w-full');
+    });
 });

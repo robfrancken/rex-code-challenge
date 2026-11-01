@@ -104,11 +104,14 @@ function ContactDetail({ id }: { id: string }) {
                         {contact.phones.map((phone, index) => (
                             <li
                                 key={phone}
-                                className="flex items-center justify-between border-t px-4 py-2.5 first:border-t-0"
+                                className="flex items-center justify-between gap-2 border-t px-4 py-2.5 first:border-t-0"
                             >
-                                <PhoneNumber value={phone} />
+                                <span className="min-w-0 break-all">
+                                    <PhoneNumber value={phone} />
+                                </span>
                                 <Button
                                     size="sm"
+                                    className="shrink-0"
                                     variant={index === 0 ? 'default' : 'outline'}
                                     disabled={isCalling}
                                     aria-label={`Call ${formatPhone(phone)}`}
@@ -130,10 +133,12 @@ function ContactDetail({ id }: { id: string }) {
                         {contact.emails.map((email) => (
                             <li
                                 key={email}
-                                className="flex items-center justify-between border-t px-4 py-2.5 text-sm first:border-t-0"
+                                className="flex items-center justify-between gap-2 border-t px-4 py-2.5 text-sm first:border-t-0"
                             >
-                                {email}
-                                <Badge variant="outline">{emailDomain(email)}</Badge>
+                                <span className="min-w-0 break-all">{email}</span>
+                                <Badge variant="outline" className="shrink-0">
+                                    {emailDomain(email)}
+                                </Badge>
                             </li>
                         ))}
                     </ul>
