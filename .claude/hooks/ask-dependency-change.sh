@@ -55,11 +55,19 @@ has_package_argument() {
 check_segment() {
   local segment="$1" program="${1%% *}" subcommand
   case "$program" in
+    pnpx)
+      hook_ask "Dependency change: [$segment]. $policy"
+      ;;
     pnpm)
       subcommand="$(first_subcommand "$segment")"
       case "$subcommand" in
-        add | update | up | upgrade | remove | rm | uninstall | un | dlx | approve-builds)
+        add | update | up | upgrade | remove | rm | uninstall | un | dlx | create | approve-builds)
           hook_ask "Dependency change: [$segment]. $policy"
+          ;;
+        audit)
+          case " $segment " in
+            *" --fix "* | *" --fix="*) hook_ask "Dependency change: [$segment]. $policy" ;;
+          esac
           ;;
         install | i)
           if has_package_argument "$segment"; then
@@ -74,8 +82,13 @@ check_segment() {
         subcommand="$(first_subcommand "${segment/ global / }")"
       fi
       case "$subcommand" in
-        require | req | remove | rm | update | upgrade | u)
+        require | req | remove | rm | update | upgrade | u | bump)
           hook_ask "Dependency change: [$segment]. $policy"
+          ;;
+        config)
+          if has_package_argument "${segment/ global / }"; then
+            hook_ask "Dependency change: [$segment]. $policy"
+          fi
           ;;
       esac
       ;;
