@@ -19,71 +19,83 @@ function renderSearchParams(initialEntry: string) {
 }
 
 describe('useContactSearchParams', () => {
-    it('reads the filters and page from the url into the API search params', () => {
-        const { result } = renderSearchParams(
-            '/contacts?name=ch&phone=0412&email_domain=rex.com.au&page=3',
-        );
+    it('reads q, email_domain and cursor from the url into the API search params', () => {
+        const { result } = renderSearchParams('/contacts?q=smi&email_domain=rex.com.au&cursor=abc');
 
         expect(result.current.searchParams.params).toEqual({
-            name: 'ch',
-            phone: '0412',
+            q: 'smi',
             email_domain: 'rex.com.au',
-            page: 3,
+            cursor: 'abc',
         });
-        expect(result.current.searchParams.filters).toEqual({
-            name: 'ch',
-            phone: '0412',
-            email_domain: 'rex.com.au',
-        });
-        expect(result.current.searchParams.hasFilters).toBe(true);
+        expect(result.current.searchParams.query).toBe('smi');
+        expect(result.current.searchParams.emailDomain).toBe('rex.com.au');
+        expect(result.current.searchParams.hasSearch).toBe(true);
     });
 
-    it.each([['page=1'], ['page=0'], ['page=abc'], ['page=2.5'], ['name=']])(
-        'leaves out an empty filter or a page that is not above 1 (%s)',
+    it.each([['q='], ['page=2'], ['name=ch']])(
+        'ignores an empty or unknown param (%s)',
         (query) => {
             const { result } = renderSearchParams(`/contacts?${query}`);
 
             expect(result.current.searchParams.params).toEqual({});
-            expect(result.current.searchParams.hasFilters).toBe(query === 'name=');
         },
     );
 
-    it('setFilter sets the filter and returns to page 1', () => {
-        const { result } = renderSearchParams('/contacts?name=ch&page=3');
+    it('a cursor alone is not a search', () => {
+        const { result } = renderSearchParams('/contacts?cursor=abc');
 
-        act(() => result.current.searchParams.setFilter('email_domain', 'rex.com.au'));
-
-        expect(result.current.location.search).toBe('?name=ch&email_domain=rex.com.au');
-        expect(result.current.navigationType).toBe('PUSH');
+        expect(result.current.searchParams.hasSearch).toBe(false);
     });
 
-    it('setFilter removes an emptied filter and can replace the history entry', () => {
-        const { result } = renderSearchParams('/contacts?name=ch&phone=04');
+    it('setQuery replaces the history entry and drops the cursor', () => {
+        const { result } = renderSearchParams('/contacts?cursor=abc');
 
-        act(() => result.current.searchParams.setFilter('name', '', { replace: true }));
+        act(() => result.current.searchParams.setQuery('smi'));
 
-        expect(result.current.location.search).toBe('?phone=04');
+        expect(result.current.location.search).toBe('?q=smi');
         expect(result.current.navigationType).toBe('REPLACE');
     });
 
-    it('goToPage sets the page and drops it for page 1', () => {
-        const { result } = renderSearchParams('/contacts?name=ch');
+    it('setQuery removes an emptied query', () => {
+        const { result } = renderSearchParams('/contacts?q=smi&email_domain=x.com');
 
-        act(() => result.current.searchParams.goToPage(4));
-        expect(result.current.location.search).toBe('?name=ch&page=4');
+        act(() => result.current.searchParams.setQuery(''));
 
-        act(() => result.current.searchParams.goToPage(1));
-        expect(result.current.location.search).toBe('?name=ch');
+        expect(result.current.location.search).toBe('?email_domain=x.com');
     });
 
-    it('clear removes every filter and the page', () => {
-        const { result } = renderSearchParams(
-            '/contacts?name=ch&phone=04&email_domain=x.com&page=2',
-        );
+    it('setEmailDomain sets the domain, pushes a history entry and drops the cursor', () => {
+        const { result } = renderSearchParams('/contacts?q=smi&cursor=abc');
+
+        act(() => result.current.searchParams.setEmailDomain('rex.com.au'));
+
+        expect(result.current.location.search).toBe('?q=smi&email_domain=rex.com.au');
+        expect(result.current.navigationType).toBe('PUSH');
+    });
+
+    it('setEmailDomain(null) removes the chip parameter', () => {
+        const { result } = renderSearchParams('/contacts?q=smi&email_domain=rex.com.au&cursor=abc');
+
+        act(() => result.current.searchParams.setEmailDomain(null));
+
+        expect(result.current.location.search).toBe('?q=smi');
+    });
+
+    it('goToCursor pushes a new history entry and keeps the search', () => {
+        const { result } = renderSearchParams('/contacts?q=smi');
+
+        act(() => result.current.searchParams.goToCursor('x'));
+
+        expect(result.current.location.search).toBe('?q=smi&cursor=x');
+        expect(result.current.navigationType).toBe('PUSH');
+    });
+
+    it('clear removes every param', () => {
+        const { result } = renderSearchParams('/contacts?q=smi&email_domain=x.com&cursor=abc');
 
         act(() => result.current.searchParams.clear());
 
         expect(result.current.location.search).toBe('');
-        expect(result.current.searchParams.hasFilters).toBe(false);
+        expect(result.current.searchParams.hasSearch).toBe(false);
     });
 });

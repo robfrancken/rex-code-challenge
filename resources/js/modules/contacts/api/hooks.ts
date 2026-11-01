@@ -15,10 +15,15 @@ import {
 } from '@/modules/contacts/api/contacts';
 import { contactKeys } from '@/modules/contacts/api/keys';
 
+export const PAGE_SIZE = 25;
+
+/** One page of the search: `params` is the URL state (`q`, `email_domain`, `cursor`). */
 export function useContacts(params: SearchParams) {
+    const request: SearchParams = { ...params, per_page: PAGE_SIZE };
+
     return useQuery({
-        queryKey: contactKeys.list(params),
-        queryFn: () => searchContacts(params),
+        queryKey: contactKeys.list(request),
+        queryFn: () => searchContacts(request),
         placeholderData: keepPreviousData,
     });
 }

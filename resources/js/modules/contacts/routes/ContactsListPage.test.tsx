@@ -11,6 +11,8 @@ import { ApiProblem } from '@/lib/api/problem';
 vi.mock('@/modules/contacts/api/contacts');
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
+const SEARCH = 'Search by name, phone or email domain';
+
 const chloe = makeContact();
 const marcus = makeContact({
     id: 'c0ffee00-0000-4000-8000-000000000002',
@@ -64,9 +66,7 @@ async function typeAndDebounce(label: string, value: string) {
 describe('ContactsListPage', () => {
     beforeEach(() => {
         vi.resetAllMocks();
-        vi.mocked(searchContacts).mockResolvedValue(
-            makePage([chloe, marcus], { total: 40, to: 2 }),
-        );
+        vi.mocked(searchContacts).mockResolvedValue(makePage([chloe, marcus]));
     });
 
     afterEach(() => vi.useRealTimers());
@@ -91,80 +91,64 @@ describe('ContactsListPage', () => {
         await waitFor(() => expect(document.title).toBe('Contacts · Rex CRM'));
     });
 
-    it('renders the rows with formatted phones, counts and the total', async () => {
+    it('renders the rows with formatted phones and counts, and no totals', async () => {
         renderList();
 
         expect(await screen.findByText('Chloe Smith')).toBeInTheDocument();
         expect(screen.getByText('+61 2 9876 5432')).toBeInTheDocument();
         expect(screen.getByText('+64 21 234 5678')).toBeInTheDocument();
         expect(screen.getByText('2 emails · 2 phones')).toBeInTheDocument();
-        expect(screen.getByText('40 contacts')).toBeInTheDocument();
-        expect(screen.getByText('Showing 1–2 of 40')).toBeInTheDocument();
+        expect(screen.queryByText(/Showing/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/\d+ contacts?$/)).not.toBeInTheDocument();
+        expect(
+            screen.getByText('Search by name, phone or email domain', { selector: 'p' }),
+        ).toBeInTheDocument();
     });
 
-    it('counts a single contact in the singular', async () => {
-        vi.mocked(searchContacts).mockResolvedValue(makePage([chloe]));
-        renderList();
+    it('asks for 25 contacts a page', async () => {
+        renderList('/contacts?q=smi&cursor=abc');
+        await screen.findByText('Chloe Smith');
 
-        expect(await screen.findByText('1 contact')).toBeInTheDocument();
+        expect(searchContacts).toHaveBeenCalledWith({ q: 'smi', cursor: 'abc', per_page: 25 });
     });
 
-    it('moves to the last page, replacing history, when the page is past the end', async () => {
-        vi.mocked(searchContacts).mockImplementation(async (params) =>
-            params.page === 5
-                ? makePage([], { current_page: 5, last_page: 2, total: 30, from: null, to: null })
-                : makePage([chloe], { current_page: 2, last_page: 2, total: 30, from: 26, to: 30 }),
-        );
-        const router = renderList('/contacts?name=c&page=5');
-
-        await waitFor(() => expect(router.state.location.search).toBe('?name=c&page=2'));
-        expect(router.state.historyAction).toBe('REPLACE');
-        expect(await screen.findByText('Chloe Smith')).toBeInTheDocument();
-        expect(screen.queryByText('No contacts match your search')).not.toBeInTheDocument();
-    });
-
-    it('writes the name filter to the url after the debounce', async () => {
-        const router = renderList();
+    it('writes q to the url after the debounce, with no cursor', async () => {
+        const router = renderList('/contacts?cursor=abc');
         await screen.findByText('Chloe Smith');
         vi.useFakeTimers({ shouldAdvanceTime: true });
 
-        fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'smi' } });
-        expect(router.state.location.search).toBe('');
+        fireEvent.change(screen.getByLabelText(SEARCH), { target: { value: 'smi' } });
+        expect(router.state.location.search).toBe('?cursor=abc');
         await act(() => vi.advanceTimersByTimeAsync(300));
 
-        expect(router.state.location.search).toBe('?name=smi');
+        expect(router.state.location.search).toBe('?q=smi');
     });
 
-    it('replaces the history entry for a typed filter, so Back skips the keystrokes', async () => {
+    it('replaces the history entry for typed text, so Back skips the keystrokes', async () => {
         const router = renderList();
         await screen.findByText('Chloe Smith');
         vi.useFakeTimers({ shouldAdvanceTime: true });
 
-        await typeAndDebounce('Name', 'smi');
+        await typeAndDebounce(SEARCH, 'smi');
 
-        expect(router.state.location.search).toBe('?name=smi');
+        expect(router.state.location.search).toBe('?q=smi');
         expect(router.state.historyAction).toBe('REPLACE');
     });
 
-    it('drops the page param when a filter changes', async () => {
-        const router = renderList('/contacts?page=3&name=ch');
-        await screen.findByText('Chloe Smith');
-        vi.useFakeTimers({ shouldAdvanceTime: true });
-
-        await typeAndDebounce('Email domain', 'rex.com.au');
-
-        expect(router.state.location.search).toBe('?name=ch&email_domain=rex.com.au');
-    });
-
-    it('applies the email_domain filter when a domain badge is clicked', async () => {
-        const router = renderList('/contacts?page=2');
+    it('shows the domain chip when a domain badge is clicked, and removing it clears email_domain', async () => {
+        const router = renderList('/contacts?q=smi&cursor=abc');
         await screen.findByText('Chloe Smith');
 
         await userEvent.click(screen.getByRole('button', { name: 'Filter by rex.com.au' }));
 
-        expect(router.state.location.search).toBe('?email_domain=rex.com.au');
+        expect(router.state.location.search).toBe('?q=smi&email_domain=rex.com.au');
         expect(router.state.historyAction).toBe('PUSH');
-        expect(screen.getByLabelText('Email domain')).toHaveValue('rex.com.au');
+        expect(screen.getByText('Domain: rex.com.au')).toBeInTheDocument();
+
+        await userEvent.click(screen.getByRole('button', { name: 'Remove domain filter' }));
+
+        expect(router.state.location.search).toBe('?q=smi');
+        expect(screen.queryByText('Domain: rex.com.au')).not.toBeInTheDocument();
     });
 
     it('navigates to the detail page when a row is clicked', async () => {
@@ -175,28 +159,42 @@ describe('ContactsListPage', () => {
         expect(router.state.location.pathname).toBe(`/contacts/${chloe.id}`);
     });
 
-    it('pages with Next and Previous', async () => {
+    it('pages with Next and Previous by cursor, and Back returns to the earlier page', async () => {
         vi.mocked(searchContacts).mockImplementation(async (params) =>
             makePage([chloe], {
-                current_page: params.page ?? 1,
-                last_page: 3,
-                from: 16,
-                to: 16,
-                total: 31,
+                next_cursor: params.cursor === undefined ? 'next-1' : null,
+                prev_cursor: params.cursor === undefined ? null : 'prev-1',
             }),
         );
-        const router = renderList('/contacts?page=2');
+        const router = renderList('/contacts?q=smi');
+        const previous = await screen.findByRole('button', { name: 'Previous' });
+        expect(previous).toBeDisabled();
 
-        await userEvent.click(await screen.findByRole('button', { name: 'Next' }));
-        expect(router.state.location.search).toBe('?page=3');
+        await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+        expect(router.state.location.search).toBe('?q=smi&cursor=next-1');
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled());
 
         await userEvent.click(screen.getByRole('button', { name: 'Previous' }));
-        expect(router.state.location.search).toBe('?page=2');
+        expect(router.state.location.search).toBe('?q=smi&cursor=prev-1');
+
+        await act(() => router.navigate(-2));
+        expect(router.state.location.search).toBe('?q=smi');
+    });
+
+    it('Back after Next returns to ?q=smi', async () => {
+        vi.mocked(searchContacts).mockResolvedValue(makePage([chloe], { next_cursor: 'next-1' }));
+        const router = renderList('/contacts?q=smi');
+
+        await userEvent.click(await screen.findByRole('button', { name: 'Next' }));
+        expect(router.state.location.search).toBe('?q=smi&cursor=next-1');
+        await act(() => router.navigate(-1));
+
+        expect(router.state.location.search).toBe('?q=smi');
     });
 
     it('shows the empty state and Clear removes every param', async () => {
         vi.mocked(searchContacts).mockResolvedValue(makePage([]));
-        const router = renderList('/contacts?name=zzz&phone=04&email_domain=x.com&page=2');
+        const router = renderList('/contacts?q=zzz&email_domain=x.com&cursor=abc');
 
         expect(await screen.findByText('No contacts match your search')).toBeInTheDocument();
         await userEvent.click(screen.getAllByRole('button', { name: 'Clear' })[0]);
@@ -219,7 +217,7 @@ describe('ContactsListPage', () => {
 
     it('closes the delete dialog after a successful delete and keeps the url and filters', async () => {
         vi.mocked(deleteContact).mockResolvedValue(undefined);
-        const router = renderList('/contacts?name=smi&page=2');
+        const router = renderList('/contacts?q=smi&cursor=abc');
 
         await userEvent.click(
             await screen.findByRole('button', { name: 'Actions for Chloe Smith' }),
@@ -231,35 +229,35 @@ describe('ContactsListPage', () => {
         await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
         expect(deleteContact).toHaveBeenCalledWith(chloe.id);
         expect(router.state.location.pathname).toBe('/contacts');
-        expect(router.state.location.search).toBe('?name=smi&page=2');
+        expect(router.state.location.search).toBe('?q=smi&cursor=abc');
     });
 
     it('keeps the filters when the New contact sheet is opened and closed', async () => {
-        const router = renderList('/contacts?name=smi&page=2');
+        const router = renderList('/contacts?q=smi&cursor=abc');
 
         await userEvent.click(await screen.findByRole('link', { name: 'New contact' }));
         expect(router.state.location.pathname).toBe('/contacts/new');
-        expect(router.state.location.search).toBe('?name=smi&page=2');
+        expect(router.state.location.search).toBe('?q=smi&cursor=abc');
         await userEvent.click(await screen.findByRole('button', { name: 'Close' }));
 
         await waitFor(() => expect(router.state.location.pathname).toBe('/contacts'));
-        expect(router.state.location.search).toBe('?name=smi&page=2');
+        expect(router.state.location.search).toBe('?q=smi&cursor=abc');
     });
 
     it('keeps the filters when a row Edit sheet is opened and closed', async () => {
         vi.mocked(getContact).mockResolvedValue(chloe);
-        const router = renderList('/contacts?name=smi&page=2');
+        const router = renderList('/contacts?q=smi&cursor=abc');
 
         await userEvent.click(
             await screen.findByRole('button', { name: 'Actions for Chloe Smith' }),
         );
         await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }));
         expect(router.state.location.pathname).toBe(`/contacts/${chloe.id}/edit`);
-        expect(router.state.location.search).toBe('?name=smi&page=2');
+        expect(router.state.location.search).toBe('?q=smi&cursor=abc');
         await userEvent.click(await screen.findByRole('button', { name: 'Close' }));
 
         await waitFor(() => expect(router.state.location.pathname).toBe('/contacts'));
-        expect(router.state.location.search).toBe('?name=smi&page=2');
+        expect(router.state.location.search).toBe('?q=smi&cursor=abc');
     });
 
     it('shows an error alert with the problem text and Retry queries again', async () => {
@@ -281,50 +279,64 @@ describe('ContactsListPage', () => {
         await waitFor(() => expect(searchContacts).toHaveBeenCalledTimes(2));
     });
 
-    it('shows a 422 on phone under the Phone filter, keeps the rows and offers no Retry', async () => {
+    it('shows a 422 on q under the search box, keeps the rows and offers no Retry', async () => {
         vi.mocked(searchContacts).mockImplementation(async (params) => {
-            if (params.phone) {
-                throw validationProblem({ phone: ['The phone field format is invalid.'] });
+            if (params.q) {
+                throw validationProblem({
+                    q: ['The q field must not be greater than 255 characters.'],
+                });
             }
 
-            return makePage([chloe, marcus], { total: 40, to: 2 });
+            return makePage([chloe, marcus]);
         });
         renderList();
         await screen.findByText('Chloe Smith');
         vi.useFakeTimers({ shouldAdvanceTime: true });
 
-        await typeAndDebounce('Phone', 'abc');
+        await typeAndDebounce(SEARCH, 'abc');
 
-        const phone = screen.getByLabelText('Phone');
+        const box = screen.getByLabelText(SEARCH);
         await waitFor(() =>
-            expect(phone).toHaveAccessibleDescription('The phone field format is invalid.'),
+            expect(box).toHaveAccessibleDescription(
+                'The q field must not be greater than 255 characters.',
+            ),
         );
-        expect(phone).toBeInvalid();
+        expect(box).toBeInvalid();
         expect(screen.getByText('Chloe Smith')).toBeInTheDocument();
         expect(screen.queryByRole('alert')).not.toBeInTheDocument();
         expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
     });
 
-    it('shows a 422 on a key with no filter input in the alert, without Retry', async () => {
+    it('shows a 422 on cursor under the search box', async () => {
         vi.mocked(searchContacts).mockRejectedValue(
-            validationProblem({ page: ['The page field must be at least 1.'] }),
+            validationProblem({ cursor: ['The cursor is not a valid page cursor.'] }),
         );
-        renderList('/contacts?page=2');
+        renderList('/contacts?cursor=bad');
+
+        expect(await screen.findByText('The cursor is not a valid page cursor.')).toBeVisible();
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('shows a 422 on a key with no input in the alert, without Retry', async () => {
+        vi.mocked(searchContacts).mockRejectedValue(
+            validationProblem({ per_page: ['The per page field must not be greater than 100.'] }),
+        );
+        renderList();
 
         expect(await screen.findByRole('alert')).toHaveTextContent('Validation failed');
         expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
     });
 
     it('does not re-apply a pending draft after Clear', async () => {
-        const router = renderList('/contacts?name=abc');
+        const router = renderList('/contacts?q=abc');
         await screen.findByText('Chloe Smith');
         vi.useFakeTimers({ shouldAdvanceTime: true });
 
-        fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'abcd' } });
+        fireEvent.change(screen.getByLabelText(SEARCH), { target: { value: 'abcd' } });
         fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
         await act(() => vi.advanceTimersByTimeAsync(300));
 
         expect(router.state.location.search).toBe('');
-        expect(screen.getByLabelText('Name')).toHaveValue('');
+        expect(screen.getByLabelText(SEARCH)).toHaveValue('');
     });
 });

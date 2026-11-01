@@ -67,7 +67,7 @@ export interface paths {
         };
         /**
          * Search contacts
-         * @description Filters combine with AND. Results are ordered by name, then id. `%` and `_` in `name` and `phone` match literally.
+         * @description `q` is one box matched against the contact name (substring, 2+ characters), phone digits and email domain prefix; a contact matches if any of these match. The explicit filters combine with AND, and with `q`. Results are ordered by name, then id, and paged by cursor: pass `meta.next_cursor` back as `cursor`. Changing the filters and reusing an old cursor is harmless: the cursor only marks a position in the name order.
          */
         get: operations["searchContacts"];
         put?: never;
@@ -185,18 +185,12 @@ export interface components {
                 next: string | null;
             };
             meta: {
-                current_page: number;
-                from: number | null;
-                last_page: number;
                 path: string;
                 per_page: number;
-                to: number | null;
-                total: number;
-                links: {
-                    url: string | null;
-                    label: string;
-                    active: boolean;
-                }[];
+                /** @description Pass as `cursor` for the next page; null on the last page. */
+                next_cursor: string | null;
+                /** @description Pass as `cursor` for the previous page; null on the first page. */
+                prev_cursor: string | null;
             };
         };
         CallRequest: {
@@ -396,14 +390,17 @@ export interface operations {
     searchContacts: {
         parameters: {
             query?: {
-                /** @description Case-insensitive substring match on the contact name. */
+                /** @description Free-text search over name, phone digits and email domain prefix. Operator characters are treated as text. Ignored when nothing in it is searchable. */
+                q?: string;
+                /** @description Case-insensitive substring match on the contact name (two or more characters; a single character matches a name prefix). */
                 name?: string;
                 /** @description A full or partial phone number. Formatting (spaces, dashes, parentheses, leading +) is allowed and ignored: the value is reduced to digits, one leading trunk 0 is dropped (so the local `0412 345 678` finds `+61412345678`), and the result is matched as a substring of stored phone numbers. */
                 phone?: string;
                 /** @description Exact, case-insensitive match on the part of an email after the last `@`. */
                 email_domain?: string;
-                page?: number;
                 per_page?: number;
+                /** @description Opaque cursor from `meta.next_cursor` or `meta.prev_cursor` of an earlier response. A malformed cursor is a 422 `validation_failed` on `cursor`. */
+                cursor?: string;
             };
             header?: never;
             path?: never;
@@ -421,7 +418,29 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthenticated"];
-            422: components["responses"]["ValidationFailed"];
+            /** @description `validation_failed`, for example a malformed `cursor`. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "/problems/validation_failed",
+                     *       "title": "Validation failed",
+                     *       "status": 422,
+                     *       "detail": "The given data was invalid.",
+                     *       "code": "validation_failed",
+                     *       "errors": {
+                     *         "cursor": [
+                     *           "The cursor is not a valid page cursor."
+                     *         ]
+                     *       }
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["ServerError"];
         };

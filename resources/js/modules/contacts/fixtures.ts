@@ -17,14 +17,10 @@ export function makePage(data: Contact[], meta: Partial<ContactPage['meta']> = {
         data,
         links: { first: null, last: null, prev: null, next: null },
         meta: {
-            current_page: 1,
-            from: data.length > 0 ? 1 : null,
-            last_page: 1,
             path: '/api/v1/contacts',
-            per_page: 15,
-            to: data.length > 0 ? data.length : null,
-            total: data.length,
-            links: [],
+            per_page: 25,
+            next_cursor: null,
+            prev_cursor: null,
             ...meta,
         },
     };
