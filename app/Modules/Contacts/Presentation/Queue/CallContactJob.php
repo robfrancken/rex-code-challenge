@@ -36,7 +36,6 @@ final class CallContactJob implements ShouldQueue
 
         Log::info('contacts.call', [
             'contact_id' => $result->contactId,
-            'phone' => $result->dialled->value,
             'outcome' => $result->outcome->value,
         ]);
     }

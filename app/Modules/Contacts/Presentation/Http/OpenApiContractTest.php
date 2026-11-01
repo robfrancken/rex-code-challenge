@@ -57,8 +57,11 @@ it('documents every problem code', function (): void {
         'csrf_token_mismatch',
         'idempotency_key_missing',
         'idempotency_key_reused',
+        'idempotency_key_invalid',
+        'idempotency_request_in_progress',
         'telephony_failed',
         'too_many_requests',
+        'http_error',
         'server_error',
     ]);
 });

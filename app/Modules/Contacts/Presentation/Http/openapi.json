@@ -234,11 +234,18 @@
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallResponse" } } }
           },
           "400": {
-            "description": "`idempotency_key_missing`: the Idempotency-Key header is absent, empty or longer than 255 characters.",
+            "description": "`idempotency_key_missing` (the Idempotency-Key header is absent or empty) or `idempotency_key_invalid` (it is longer than 255 characters).",
             "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
           },
           "401": { "$ref": "#/components/responses/Unauthenticated" },
           "404": { "$ref": "#/components/responses/ContactNotFound" },
+          "409": {
+            "description": "`idempotency_request_in_progress`: a request with the same Idempotency-Key is still being processed. Retry after the `Retry-After` delay.",
+            "headers": {
+              "Retry-After": { "description": "Seconds to wait before retrying.", "schema": { "type": "string" } }
+            },
+            "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+          },
           "419": { "$ref": "#/components/responses/CsrfTokenMismatch" },
           "422": {
             "description": "Either `validation_failed` (bad phone, a phone that is not one of the contact's numbers, or a contact with no phones; with `errors`) or `idempotency_key_reused` (the key was already used with a different request).",
@@ -475,8 +482,11 @@
               "csrf_token_mismatch",
               "idempotency_key_missing",
               "idempotency_key_reused",
+              "idempotency_key_invalid",
+              "idempotency_request_in_progress",
               "telephony_failed",
               "too_many_requests",
+              "http_error",
               "server_error"
             ]
           },

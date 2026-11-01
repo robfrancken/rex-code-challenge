@@ -26,6 +26,7 @@ final class ProblemRenderer
                 $e->title(),
                 $e->getMessage(),
                 $e->extensions(),
+                $e->headers(),
             ),
             $e instanceof ValidationException => ProblemDetails::response(
                 422,

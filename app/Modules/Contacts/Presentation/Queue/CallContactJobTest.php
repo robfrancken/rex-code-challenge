@@ -19,7 +19,12 @@ it('places the call and logs it', function (): void {
     (new CallContactJob(CallContactData::fromValidated($id, [])))->handle(app(CallContact::class));
 
     expect($gateway->dialled)->toBe(['+61412345678']);
-    Log::shouldHaveReceived('info')->with('contacts.call', Mockery::type('array'))->once();
+    Log::shouldHaveReceived('info')
+        ->withArgs(fn (string $message, array $context): bool => $message === 'contacts.call'
+            && array_keys($context) === ['contact_id', 'outcome']
+            && $context['contact_id'] === $id
+            && $context['outcome'] === 'answered')
+        ->once();
 });
 
 it('lets a telephony failure propagate so the queue retries', function (): void {
@@ -35,4 +40,14 @@ it('is queued with retries and backoff', function (): void {
     expect($job)->toBeInstanceOf(ShouldQueue::class)
         ->and($job->tries)->toBe(3)
         ->and($job->backoff())->toBe([10, 30]);
+});
+
+it('survives queue serialization with its dto and phone number', function (): void {
+    $id = (string) Str::uuid();
+    $job = new CallContactJob(CallContactData::fromValidated($id, ['phone' => '+61412345678']));
+
+    $restored = unserialize(serialize($job));
+
+    expect($restored->data->contactId)->toBe($id)
+        ->and($restored->data->phone?->value)->toBe('+61412345678');
 });

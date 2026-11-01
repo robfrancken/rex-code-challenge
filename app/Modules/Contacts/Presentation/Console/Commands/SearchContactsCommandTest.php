@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Database\Factories\Contacts\ContactEmailFactory;
 use Database\Factories\Contacts\ContactFactory;
+use Illuminate\Support\Facades\Artisan;
 
 beforeEach(function (): void {
     $contact = ContactFactory::new()->create(['name' => 'Jane Smith']);
@@ -18,9 +19,13 @@ it('searches by email domain and prints the page summary', function (): void {
 });
 
 it('prints json that decodes to the matches', function (): void {
-    $this->artisan('contacts:search', ['--domain' => 'rex.com.au', '--json' => true])
-        ->expectsOutputToContain('Jane Smith')
-        ->assertExitCode(0);
+    Artisan::call('contacts:search', ['--domain' => 'rex.com.au', '--json' => true]);
+    $decoded = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+    expect($decoded)->toHaveCount(1)
+        ->and($decoded[0])->toHaveKeys(['id', 'name', 'emails', 'phones'])
+        ->and($decoded[0]['name'])->toBe('Jane Smith')
+        ->and($decoded[0]['emails'])->toBe(['jane@rex.com.au']);
 });
 
 it('rejects an invalid page size', function (): void {
