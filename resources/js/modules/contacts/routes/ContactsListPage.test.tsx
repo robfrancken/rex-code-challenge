@@ -7,6 +7,7 @@ import { makeContact, makePage } from '@/modules/contacts/fixtures';
 import { ContactsListPage } from '@/modules/contacts/routes/ContactsListPage';
 
 vi.mock('@/modules/contacts/api/contacts');
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 const chloe = makeContact();
 const marcus = makeContact({
@@ -128,5 +129,18 @@ describe('ContactsListPage', () => {
         await userEvent.click(screen.getAllByRole('button', { name: 'Clear' })[0]);
 
         expect(router.state.location.search).toBe('');
+    });
+
+    it('opens the delete confirmation from the row menu', async () => {
+        renderList();
+
+        await userEvent.click(
+            await screen.findByRole('button', { name: 'Actions for Chloe Smith' }),
+        );
+        await userEvent.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+
+        expect(await screen.findByRole('alertdialog')).toHaveTextContent(
+            "Delete Chloe Smith? This can't be undone.",
+        );
     });
 });

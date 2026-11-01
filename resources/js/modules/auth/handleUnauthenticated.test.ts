@@ -35,4 +35,14 @@ describe('createUnauthenticatedHandler', () => {
 
         expect(navigate).not.toHaveBeenCalled();
     });
+
+    it('still redirects from a path that merely starts with /login', () => {
+        const queryClient = new QueryClient();
+        queryClient.setQueryData(meQueryKey, user);
+        const navigate = vi.fn();
+
+        createUnauthenticatedHandler(queryClient, navigate, () => '/login-help')();
+
+        expect(navigate).toHaveBeenCalledOnce();
+    });
 });

@@ -1,4 +1,5 @@
 import { Mail, MoreHorizontal, Phone, Plus, Search } from 'lucide-react';
+import { useState } from 'react';
 import { Link, Outlet, useNavigate, useSearchParams } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -21,6 +22,7 @@ import { emailDomain } from '@/lib/format/emailDomain';
 import { useContacts } from '@/modules/contacts/api/hooks';
 import type { Contact, SearchParams } from '@/modules/contacts/api/contacts';
 import { ContactAvatar } from '@/modules/contacts/components/ContactAvatar';
+import { DeleteContactDialog } from '@/modules/contacts/components/DeleteContactDialog';
 import { DebouncedInput } from '@/modules/contacts/components/DebouncedInput';
 import { EmailDomainBadge } from '@/modules/contacts/components/EmailDomainBadge';
 import { PhoneNumber } from '@/modules/contacts/components/PhoneNumber';
@@ -60,9 +62,10 @@ function MoreCount({ count }: { count: number }) {
 interface ContactRowProps {
     contact: Contact;
     onSelectDomain: (domain: string) => void;
+    onDelete: (contact: Contact) => void;
 }
 
-function ContactRow({ contact, onSelectDomain }: ContactRowProps) {
+function ContactRow({ contact, onSelectDomain, onDelete }: ContactRowProps) {
     const navigate = useNavigate();
     const [firstEmail] = contact.emails;
     const [firstPhone] = contact.phones;
@@ -123,6 +126,9 @@ function ContactRow({ contact, onSelectDomain }: ContactRowProps) {
                         <DropdownMenuItem asChild>
                             <Link to={`/contacts/${contact.id}/edit`}>Edit</Link>
                         </DropdownMenuItem>
+                        <DropdownMenuItem variant="destructive" onSelect={() => onDelete(contact)}>
+                            Delete
+                        </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             </TableCell>
@@ -144,6 +150,7 @@ function SkeletonRows() {
 
 export function ContactsListPage() {
     const [urlParams, setUrlParams] = useSearchParams();
+    const [pendingDelete, setPendingDelete] = useState<Contact | null>(null);
     const { data, isPending } = useContacts(toSearchParams(urlParams));
     const hasFilters = FILTER_KEYS.some((key) => urlParams.has(key));
     const isEmpty = data !== undefined && data.data.length === 0;
@@ -241,6 +248,7 @@ export function ContactsListPage() {
                                 key={contact.id}
                                 contact={contact}
                                 onSelectDomain={(domain) => setFilter('email_domain', domain)}
+                                onDelete={setPendingDelete}
                             />
                         ))}
                     </TableBody>
@@ -283,6 +291,12 @@ export function ContactsListPage() {
                     </div>
                 )}
             </Card>
+            {pendingDelete && (
+                <DeleteContactDialog
+                    contact={pendingDelete}
+                    onClose={() => setPendingDelete(null)}
+                />
+            )}
             <Outlet />
         </>
     );

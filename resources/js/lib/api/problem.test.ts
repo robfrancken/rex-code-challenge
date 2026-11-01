@@ -1,4 +1,4 @@
-import { ApiProblem, isApiProblem } from '@/lib/api/problem';
+import { ApiProblem, isApiProblem, problemMessage } from '@/lib/api/problem';
 
 describe('ApiProblem', () => {
     it('is built from a 422 problem body with field errors', () => {
@@ -21,7 +21,13 @@ describe('ApiProblem', () => {
 
     it('defaults errors to an empty object and keeps retryAfter', () => {
         const problem = new ApiProblem(
-            { type: '/problems/too_many_requests', title: 'Slow down', status: 429, detail: 'Try later.', code: 'too_many_requests' },
+            {
+                type: '/problems/too_many_requests',
+                title: 'Slow down',
+                status: 429,
+                detail: 'Try later.',
+                code: 'too_many_requests',
+            },
             30,
         );
 
@@ -30,10 +36,37 @@ describe('ApiProblem', () => {
     });
 
     it('is recognised by isApiProblem but a plain Error is not', () => {
-        const problem = new ApiProblem({ type: 't', title: 'x', status: 404, detail: 'y', code: 'not_found' });
+        const problem = new ApiProblem({
+            type: 't',
+            title: 'x',
+            status: 404,
+            detail: 'y',
+            code: 'not_found',
+        });
 
         expect(isApiProblem(problem)).toBe(true);
         expect(isApiProblem(new Error('boom'))).toBe(false);
         expect(isApiProblem(undefined)).toBe(false);
+    });
+});
+
+describe('problemMessage', () => {
+    it('uses the problem title and detail', () => {
+        const problem = new ApiProblem({
+            type: 't',
+            title: 'Nope',
+            status: 500,
+            detail: 'Broke.',
+            code: 'server_error',
+        });
+
+        expect(problemMessage(problem)).toEqual({ title: 'Nope', detail: 'Broke.' });
+    });
+
+    it('falls back for anything else without leaking the raw message', () => {
+        expect(problemMessage(new Error('Network Error'), 'Could not save')).toEqual({
+            title: 'Could not save',
+            detail: 'Please try again.',
+        });
     });
 });

@@ -1,8 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { LogOut, Users } from 'lucide-react';
+import { toast } from 'sonner';
 import { NavLink, Outlet, useNavigate } from 'react-router';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { problemMessage } from '@/lib/api/problem';
 import { initials } from '@/lib/format/initials';
 import { cn } from '@/lib/utils';
 import { logout } from '@/modules/auth/api';
@@ -14,14 +16,22 @@ export function AppShell() {
     const queryClient = useQueryClient();
 
     async function signOut() {
-        await logout();
+        try {
+            await logout();
+        } catch (error) {
+            const { title, detail } = problemMessage(error, 'Could not sign out');
+            toast.error(title, { description: detail });
+
+            return;
+        }
+
         await navigate('/login');
         queryClient.clear();
     }
 
     return (
-        <div className="flex min-h-screen bg-background">
-            <aside className="flex w-[210px] shrink-0 flex-col border-r bg-card px-3 py-4">
+        <div className="bg-background flex min-h-screen">
+            <aside className="bg-card flex w-[210px] shrink-0 flex-col border-r px-3 py-4">
                 <div className="flex items-center gap-2.5 px-2 pb-4 font-semibold">
                     <div className="grid size-[30px] place-items-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 text-[13px] font-bold text-white">
                         R
@@ -32,7 +42,10 @@ export function AppShell() {
                     <NavLink
                         to="/contacts"
                         className={({ isActive }) =>
-                            cn('flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm', isActive && 'bg-accent font-medium')
+                            cn(
+                                'flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm',
+                                isActive && 'bg-accent font-medium',
+                            )
                         }
                     >
                         <Users className="size-4" aria-hidden />
@@ -45,9 +58,15 @@ export function AppShell() {
                     </Avatar>
                     <div className="min-w-0 flex-1 text-sm">
                         <div className="truncate">{user.name}</div>
-                        <div className="truncate text-xs text-muted-foreground">{user.email}</div>
+                        <div className="text-muted-foreground truncate text-xs">{user.email}</div>
                     </div>
-                    <Button variant="ghost" size="icon" aria-label="Sign out" title="Sign out" onClick={signOut}>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Sign out"
+                        title="Sign out"
+                        onClick={signOut}
+                    >
                         <LogOut className="size-4" aria-hidden />
                     </Button>
                 </div>

@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { isApiProblem } from '@/lib/api/problem';
 import {
@@ -7,6 +8,7 @@ import {
     getContact,
     searchContacts,
     updateContact,
+    type CallResult,
     type ContactInput,
     type SearchParams,
 } from '@/modules/contacts/api/contacts';
@@ -50,28 +52,47 @@ export function useUpdateContact(id: string) {
 }
 
 export function useDeleteContact() {
-    const invalidate = useInvalidateContacts();
+    const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (id: string) => deleteContact(id),
-        onSuccess: invalidate,
+        onSuccess: (_, id) => {
+            queryClient.removeQueries({ queryKey: contactKeys.detail(id) });
+
+            return queryClient.invalidateQueries({ queryKey: contactKeys.lists() });
+        },
     });
 }
 
-/** A network failure is retried once with the same key, so the server places at most one call. */
+/**
+ * Places calls for one contact. A network failure is retried once with the same key, so the server
+ * places at most one call. `last` is the most recent successful result and survives later failures;
+ * `call` never throws, because `error` is exposed for rendering.
+ */
 export function useCallContact(id: string) {
     const invalidate = useInvalidateContacts();
-    const mutation = useMutation({
+    const [last, setLast] = useState<CallResult | undefined>(undefined);
+    const { mutateAsync, error, isPending } = useMutation({
         mutationFn: ({ phone, idempotencyKey }: { phone: string; idempotencyKey: string }) =>
             callContact(id, phone, idempotencyKey),
         retry: (failureCount, error) => !isApiProblem(error) && failureCount < 1,
-        onSuccess: invalidate,
+        onSuccess: (result) => {
+            setLast(result);
+
+            return invalidate();
+        },
     });
 
-    return {
-        call: (phone: string) => mutation.mutateAsync({ phone, idempotencyKey: crypto.randomUUID() }),
-        last: mutation.data,
-        error: mutation.error,
-        isPending: mutation.isPending,
-    };
+    const call = useCallback(
+        async (phone: string): Promise<void> => {
+            try {
+                await mutateAsync({ phone, idempotencyKey: crypto.randomUUID() });
+            } catch {
+                // Surfaced through `error`.
+            }
+        },
+        [mutateAsync],
+    );
+
+    return { call, last, error, isPending };
 }
