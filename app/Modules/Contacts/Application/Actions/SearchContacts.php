@@ -12,6 +12,11 @@ use Illuminate\Database\Eloquent\Builder;
 final class SearchContacts
 {
     /**
+     * Not a backslash: MySQL string literals treat it as an escape, so it is not portable.
+     */
+    private const string LIKE_ESCAPE = '!';
+
+    /**
      * @return LengthAwarePaginator<int, Contact>
      */
     public function handle(SearchContactsData $data): LengthAwarePaginator
@@ -19,13 +24,13 @@ final class SearchContacts
         return Contact::query()
             ->when($data->name !== null, fn (Builder $query) => $query->whereRaw(
                 'lower(name) like ? escape ?',
-                ['%'.$this->escapeLike(mb_strtolower((string) $data->name)).'%', '\\'],
+                ['%'.$this->escapeLike(mb_strtolower((string) $data->name)).'%', self::LIKE_ESCAPE],
             ))
             ->when($data->phoneDigits !== null, fn (Builder $query) => $query->whereHas(
                 'phones',
                 fn (Builder $phones) => $phones->whereRaw(
                     'phone like ? escape ?',
-                    ['%'.$this->escapeLike((string) $data->phoneDigits).'%', '\\'],
+                    ['%'.$this->escapeLike((string) $data->phoneDigits).'%', self::LIKE_ESCAPE],
                 ),
             ))
             ->when($data->emailDomain !== null, fn (Builder $query) => $query->whereHas(
@@ -40,6 +45,6 @@ final class SearchContacts
 
     private function escapeLike(string $value): string
     {
-        return addcslashes($value, '\\%_');
+        return preg_replace('/[!%_]/', self::LIKE_ESCAPE.'$0', $value) ?? $value;
     }
 }

@@ -92,3 +92,12 @@ it('treats % and _ literally', function (): void {
     expect(searchNames(new SearchContactsData('%', null, null)))->toBe(['100% Agency'])
         ->and(searchNames(new SearchContactsData('a_b', null, null)))->toBe(['a_b']);
 });
+
+it('treats the escape character and a backslash literally', function (): void {
+    ContactFactory::new()->create(['name' => 'Wow! Co']);
+    ContactFactory::new()->create(['name' => 'back\\slash']);
+    ContactFactory::new()->create(['name' => 'Bob']);
+
+    expect(searchNames(new SearchContactsData('!', null, null)))->toBe(['Wow! Co'])
+        ->and(searchNames(new SearchContactsData('\\', null, null)))->toBe(['back\\slash']);
+});

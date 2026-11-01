@@ -89,7 +89,7 @@ it('handles a first create that races another request', function (): void {
     $id = (string) Str::uuid();
     $raced = false;
     DB::listen(function (QueryExecuted $query) use ($id, &$raced): void {
-        if (! $raced && str_starts_with($query->sql, 'select') && str_contains($query->sql, 'from "contacts"')) {
+        if (! $raced && str_starts_with($query->sql, 'select') && preg_match('/from [`"]contacts[`"]/', $query->sql) === 1) {
             $raced = true;
             DB::table('contacts')->insert([
                 'id' => $id,

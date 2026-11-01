@@ -15,10 +15,10 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        User::factory()->create([
+        User::query()->where('email', 'demo@example.com')->firstOr(fn (): User => User::factory()->create([
             'name' => 'Demo User',
             'email' => 'demo@example.com',
-        ]);
+        ]));
 
         $this->call(ContactSeeder::class);
     }
