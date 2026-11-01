@@ -21,7 +21,16 @@
       "Bash(gh pr create *)",
       "Bash(gh pr view *)",
       "Bash(gh pr checks *)",
-      "Bash(gh pr list *)"
+      "Bash(gh pr list *)",
+      "Bash(php artisan test*)",
+      "Bash(vendor/bin/pest*)",
+      "Bash(vendor/bin/pint*)",
+      "Bash(php artisan route:list*)",
+      "Bash(php artisan config:show*)",
+      "Bash(php artisan about*)",
+      "Bash(composer show*)",
+      "Bash(composer dump-autoload*)",
+      "Bash(.claude/hooks/run-tests.sh)"
     ],
     "deny": [
       "Bash(git push --force*)",
@@ -38,7 +47,82 @@
       "Bash(rm -fr /*)",
       "Bash(rm -fr ~*)",
       "Bash(rm -fr $HOME*)",
-      "Bash(rm -fr ..*)"
+      "Bash(rm -fr ..*)",
+      "Bash(rm -r *)",
+      "Bash(rm -R *)",
+      "Bash(rm -rf *)",
+      "Bash(rm -fr *)",
+      "Bash(rm -Rf *)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(yarn *)"
+    ]
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "claude-plugins-official": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-official"
+      }
+    }
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/guard-destructive.sh",
+            "args": []
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/enforce-pnpm.sh",
+            "args": []
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/commit-format.sh",
+            "args": []
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/ask-dependency-change.sh",
+            "args": []
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/ask-dependency-change.sh",
+            "args": []
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/lint-php.sh",
+            "args": []
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/lint-frontend.sh",
+            "args": []
+          }
+        ]
+      }
     ]
   }
 }
