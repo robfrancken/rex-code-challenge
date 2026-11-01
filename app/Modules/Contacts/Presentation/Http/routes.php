@@ -7,11 +7,14 @@ use App\Modules\Contacts\Presentation\Http\Controllers\ContactController;
 use App\Modules\Contacts\Presentation\Http\Middleware\EnsureIdempotency;
 use Illuminate\Support\Facades\Route;
 
-Route::put('contacts/{id}', [ContactController::class, 'upsert'])->name('upsert');
-Route::get('contacts/{id}', [ContactController::class, 'show'])->name('show');
-Route::get('contacts', [ContactController::class, 'index'])->name('index');
-Route::delete('contacts/{id}', [ContactController::class, 'destroy'])->name('destroy');
+Route::apiResource('contacts', ContactController::class)->only(['index', 'show', 'destroy']);
 
-Route::post('contacts/{id}/calls', [CallController::class, 'store'])
+Route::post('contacts', [ContactController::class, 'store'])
     ->middleware(EnsureIdempotency::class)
-    ->name('calls.store');
+    ->name('contacts.store');
+
+Route::put('contacts/{contact}', [ContactController::class, 'update'])->name('contacts.update');
+
+Route::apiResource('contacts.calls', CallController::class)
+    ->only('store')
+    ->middleware(EnsureIdempotency::class);

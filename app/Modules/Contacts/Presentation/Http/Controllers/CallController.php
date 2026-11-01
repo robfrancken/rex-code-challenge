@@ -14,10 +14,10 @@ final class CallController extends Controller
 {
     public function store(
         Request $request,
-        string $id,
+        string $contact,
         CallContactDataFromRequest $assembler,
         CallContact $action,
     ): CallResource {
-        return new CallResource($action->handle($assembler->assemble($request, $id)));
+        return new CallResource($action->handle($assembler->assemble($request, $contact)));
     }
 }

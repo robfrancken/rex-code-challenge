@@ -98,6 +98,7 @@ What Rob wants reviewers to notice first is **the architecture**: a feature modu
 
     Anything else raises a domain exception.
   - `EmailAddress` is a `final readonly` value object. It normalises by trimming and lowercasing, and exposes `domain()`.
+  - `ContactId` is a `final readonly` value object (added after the review). It validates the UUID and lowercases it, so `ABC…` and `abc…` are the same contact on every database. It also generates new ids for `POST /contacts`. A non-UUID id means "not found", and no query is run.
 
   The validator uses the same rules, so they're defined in exactly one place.
 - **Calls** live inside the Contacts module at `app/Modules/Contacts/Domain/Telephony/`. There is no separate Telephony module; that's out of scope.
@@ -117,6 +118,9 @@ What Rob wants reviewers to notice first is **the architecture**: a feature modu
   | `CallContact` | `CallContactData` | `CallResult` (outcome, number dialled, timestamp) |
 
   Missing contacts raise a module exception, `ContactNotFound`, which the HTTP and CLI layers map to their own error output.
+  - Application exceptions extend a transport-neutral `App\Exceptions\ApplicationException`. It carries only a stable problem code and a human message, never an HTTP status.
+  - The module's Presentation layer registers how each one maps to HTTP (status and title). An unmapped one renders as a generic 500.
+  - Expected errors like these are not reported to the error log. `TelephonyFailed` is logged at warning level, with the contact id only.
 - **How `UpsertContact` writes:**
   1. Open one `DB::transaction`.
   2. Get the row with Laravel's `createOrFirst` on the ID. It handles two concurrent first creates of the same UUID by catching the unique violation and reading the winner's row.
@@ -164,7 +168,7 @@ The routes follow Laravel's RESTful resource conventions (Rob's decision; amende
 
 **Search rules:**
 - `name` is a case-insensitive "contains" match.
-- `phone` is a digits-only "contains" match on the stored numbers, so "1234" matches the last digits and a full E.164 number matches exactly.
+- `phone` is a digits-only "contains" match on the stored numbers, so "1234" matches the last digits and a full E.164 number matches exactly. Formatted input such as `(04) 1234-5678` is accepted. One leading trunk `0` is dropped, so a number typed the local way (`0412 345 678`) finds `+61412345678`.
 - `email_domain` is an exact, case-insensitive match on the stored domain column.
 - Filters combine with AND, and no filters lists all contacts.
 - `per_page` defaults to 25, with a maximum of 100.

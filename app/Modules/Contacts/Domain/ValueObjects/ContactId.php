@@ -15,6 +15,11 @@ final readonly class ContactId implements Stringable
 {
     private function __construct(public string $value) {}
 
+    public static function generate(): self
+    {
+        return new self(strtolower((string) Str::uuid()));
+    }
+
     /**
      * @throws InvalidContactId
      */

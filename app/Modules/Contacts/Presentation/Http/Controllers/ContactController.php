@@ -11,6 +11,7 @@ use App\Modules\Contacts\Application\Actions\SearchContacts;
 use App\Modules\Contacts\Application\Actions\UpsertContact;
 use App\Modules\Contacts\Application\Assemblers\ContactDataFromRequest;
 use App\Modules\Contacts\Application\Assemblers\SearchContactsDataFromRequest;
+use App\Modules\Contacts\Domain\ValueObjects\ContactId;
 use App\Modules\Contacts\Presentation\Http\Resources\ContactResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,13 +20,27 @@ use Illuminate\Http\Response;
 
 final class ContactController extends Controller
 {
-    public function upsert(
+    public function store(
         Request $request,
-        string $id,
         ContactDataFromRequest $assembler,
         UpsertContact $action,
     ): JsonResponse {
-        $result = $action->handle($assembler->assemble($request, $id));
+        $id = ContactId::generate();
+        $result = $action->handle($assembler->assemble($request, $id->value));
+
+        return (new ContactResource($result->contact))
+            ->response()
+            ->setStatusCode(201)
+            ->header('Location', route('contacts.show', $id->value));
+    }
+
+    public function update(
+        Request $request,
+        string $contact,
+        ContactDataFromRequest $assembler,
+        UpsertContact $action,
+    ): JsonResponse {
+        $result = $action->handle($assembler->assemble($request, $contact));
 
         return (new ContactResource($result->contact))
             ->response()
@@ -33,10 +48,10 @@ final class ContactController extends Controller
     }
 
     public function show(
-        string $id,
+        string $contact,
         GetContact $action,
     ): ContactResource {
-        return new ContactResource($action->handle($id));
+        return new ContactResource($action->handle($contact));
     }
 
     public function index(
@@ -48,10 +63,10 @@ final class ContactController extends Controller
     }
 
     public function destroy(
-        string $id,
+        string $contact,
         DeleteContact $action,
     ): Response {
-        $action->handle($id);
+        $action->handle($contact);
 
         return response()->noContent();
     }

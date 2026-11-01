@@ -28,7 +28,6 @@ final class ContactsServiceProvider extends ServiceProvider
 
         Route::middleware(['web', 'auth', 'throttle:api'])
             ->prefix('api/v1')
-            ->name('contacts.')
             ->group(__DIR__.'/Presentation/Http/routes.php');
 
         if ($this->app->runningInConsole()) {
