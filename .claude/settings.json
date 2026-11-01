@@ -36,6 +36,7 @@
       "Edit(/pnpm-workspace.yaml)",
       "Edit(/.npmrc)",
       "Edit(/.claude/settings.json)",
+      "Edit(/.claude/settings.local.json)",
       "Edit(/.claude/hooks/**)"
     ],
     "deny": [
@@ -83,22 +84,26 @@
           {
             "type": "command",
             "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/guard-destructive.sh",
-            "args": []
+            "args": [],
+            "onFailure": "block"
           },
           {
             "type": "command",
             "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/enforce-pnpm.sh",
-            "args": []
+            "args": [],
+            "onFailure": "block"
           },
           {
             "type": "command",
             "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/commit-format.sh",
-            "args": []
+            "args": [],
+            "onFailure": "block"
           },
           {
             "type": "command",
             "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/ask-dependency-change.sh",
-            "args": []
+            "args": [],
+            "onFailure": "block"
           }
         ]
       },
@@ -108,7 +113,8 @@
           {
             "type": "command",
             "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/ask-dependency-change.sh",
-            "args": []
+            "args": [],
+            "onFailure": "block"
           }
         ]
       }

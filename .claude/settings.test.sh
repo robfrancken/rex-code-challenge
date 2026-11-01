@@ -31,7 +31,7 @@ for rule in 'Bash(rm -r *)' 'Bash(rm -rf *)' 'Bash(npm *)' 'Bash(npx *)' 'Bash(y
   expect_equals "deny contains $rule" true "$has"
 done
 
-for rule in 'Edit(/pnpm-workspace.yaml)' 'Edit(/.npmrc)' 'Edit(/.claude/settings.json)' 'Edit(/.claude/hooks/**)'; do
+for rule in 'Edit(/pnpm-workspace.yaml)' 'Edit(/.npmrc)' 'Edit(/.claude/settings.json)' 'Edit(/.claude/hooks/**)' 'Edit(/.claude/settings.local.json)'; do
   has="$(jq -r --arg rule "$rule" '(.permissions.ask // []) | index($rule) != null' "$settings" 2>/dev/null || echo false)"
   expect_equals "ask contains $rule" true "$has"
 done
@@ -53,5 +53,12 @@ expect_equals 'PreToolUse edit hooks' 'ask-dependency-change.sh' \
   "$(registered_scripts PreToolUse 'Edit|Write|MultiEdit')"
 expect_equals 'PostToolUse edit hooks' 'lint-php.sh,lint-frontend.sh' \
   "$(registered_scripts PostToolUse 'Edit|Write|MultiEdit')"
+
+pre_total="$(jq '[.hooks.PreToolUse[]?.hooks[]?] | length' "$settings" 2>/dev/null || echo 0)"
+pre_blocking="$(jq '[.hooks.PreToolUse[]?.hooks[]? | select(.onFailure == "block")] | length' "$settings" 2>/dev/null || echo 0)"
+expect_equals 'five PreToolUse handlers registered' 5 "$pre_total"
+expect_equals 'every PreToolUse handler fails closed (onFailure block)' 5 "$pre_blocking"
+post_blocking="$(jq '[.hooks.PostToolUse[]?.hooks[]? | select(has("onFailure"))] | length' "$settings" 2>/dev/null || echo 1)"
+expect_equals 'PostToolUse lint handlers do not set onFailure' 0 "$post_blocking"
 
 finish_tests
