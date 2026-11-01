@@ -169,7 +169,7 @@ graph TD
 
 - `bootstrap/app.php`:
   - add `'login', 'logout'` to the `shouldRenderJsonWhen` paths;
-  - register `$exceptions->render(fn (Throwable $e, Request $request) => $request->is('api/*', 'login', 'logout') || $request->expectsJson() ? ProblemRenderer::render($e) : null);`.
+  - register a render callback that uses `ProblemRenderer::render()` for requests to `api/*`, `login` or `logout`, or that expect JSON, and returns `null` for everything else, so web pages keep Laravel's default handling.
 
 - [ ] **Step 1: Write the failing tests** in `ProblemRendererTest.php`. They register throwaway routes in `beforeEach` with `Route::middleware('web')->get('api/test/...', fn () => throw …)`:
   - `it('renders validation errors as problem details')`: status 422, `code` = `validation_failed`, `type` = `/problems/validation_failed`, `errors.name` present, `Content-Type` contains `application/problem+json`.
@@ -310,10 +310,12 @@ graph TD
     - `ContactDataFromCli::assemble(?string $id, string $name, array $emails, array $phones): UpsertContactData` uses `$id ?? (string) Str::uuid()`.
   - **`UpsertContact::handle(UpsertContactData $data): UpsertResult`:**
     1. Open `DB::transaction`.
-    2. `$contact = Contact::query()->createOrFirst(['id' => $data->id], ['name' => $data->name]);`, and take `created` from `$contact->wasRecentlyCreated`.
+    2. Create the contact if its id doesn't exist yet, using Laravel's `createOrFirst` so a concurrent first create is safe. Take `created` from whether this request inserted the row.
     3. Re-read the row with `lockForUpdate()`.
     4. Update the name if it changed.
-    5. Sync the emails: `insertOrIgnore` the rows for missing values, with `domain`, `created_at` and `updated_at` set explicitly. Don't use `upsert($rows, $uniqueBy, [])`: in Laravel 13 an empty update list falls back to a plain `insert` and violates the unique index. Then `whereNotIn('email', $values)->delete()`.
+    5. Sync the emails:
+       - Insert the missing values with `insertOrIgnore`, setting `domain` and the timestamps explicitly. Don't use Laravel's `upsert` with an empty update list: in Laravel 13 it falls back to a plain insert and violates the unique index.
+       - Delete the stored emails that are no longer submitted, comparing the same normalised values that were inserted.
     6. Sync the phones the same way.
     7. Return the contact with `emails` and `phones` loaded.
 

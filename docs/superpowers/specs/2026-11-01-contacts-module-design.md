@@ -151,13 +151,16 @@ It sits under `app/Modules/Contacts/Infrastructure/`, a fourth folder beyond Rob
 
 **Routes** are under `/api/v1`, use the `web` middleware stack (session and CSRF) plus `auth`, and are registered by the module's provider:
 
-| Method and path | Action | Success | Notes |
-|---|---|---|---|
-| `PUT /api/v1/contacts/{id}` | `UpsertContact` | 201 if created, 200 if updated | `{id}` is a client-supplied UUID, which makes create idempotent |
-| `GET /api/v1/contacts/{id}` | `GetContact` | 200 | 404 if missing |
-| `GET /api/v1/contacts` | `SearchContacts` | 200 | query params `name`, `phone`, `email_domain`, `page`, `per_page` |
-| `DELETE /api/v1/contacts/{id}` | `DeleteContact` | 204 | 404 if already gone (same end state) |
-| `POST /api/v1/contacts/{id}/calls` | `CallContact` | 200 with the outcome | `Idempotency-Key` header required; outcome `Failed` → 502 |
+The routes follow Laravel's RESTful resource conventions (Rob's decision; amended after the review):
+
+| Method and path | Controller method | Action | Success | Notes |
+|---|---|---|---|---|
+| `GET /api/v1/contacts` | `index` | `SearchContacts` | 200 | query params `name`, `phone`, `email_domain`, `page`, `per_page` |
+| `POST /api/v1/contacts` | `store` | `UpsertContact` with a server-generated id | 201 plus a `Location` header | for clients without their own ids; `Idempotency-Key` header required, so a retry can't create a duplicate |
+| `GET /api/v1/contacts/{contact}` | `show` | `GetContact` | 200 | 404 if missing |
+| `PUT /api/v1/contacts/{contact}` | `update` | `UpsertContact` | 201 if created, 200 if updated | the upsert: `{contact}` is a client-supplied UUID, which makes create-or-replace idempotent. PUT only; there is no PATCH, because there is no partial update |
+| `DELETE /api/v1/contacts/{contact}` | `destroy` | `DeleteContact` | 204 | 404 if already gone (same end state) |
+| `POST /api/v1/contacts/{contact}/calls` | `CallController@store` | `CallContact` | 200 with the outcome | `Idempotency-Key` header required; outcome `Failed` → 502 |
 
 **Search rules:**
 - `name` is a case-insensitive "contains" match.
