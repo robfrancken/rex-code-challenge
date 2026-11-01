@@ -25,7 +25,7 @@ edit_input() {
 
 run_hook() {
   local script="$1" json="$2"
-  local err_file="$HOOK_TEST_DIR/stderr.$$"
+  local err_file="$HOOK_TEST_DIR/stderr"
   HOOK_EXIT=0
   HOOK_STDOUT="$(printf '%s' "$json" | "$HOOKS_DIR/$script" 2>"$err_file")" || HOOK_EXIT=$?
   HOOK_STDERR="$(cat "$err_file")"

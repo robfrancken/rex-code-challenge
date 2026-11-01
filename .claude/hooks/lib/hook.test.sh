@@ -37,6 +37,19 @@ expect_segment 'a || b &' 'b'
 expect_segment '(rm -rf y)' 'rm -rf y'
 expect_segment '{ rm -rf y; }' 'rm -rf y'
 
+expect_segment 'sudo -u root rm -rf /' 'rm -rf /'
+expect_segment 'nice -n 10 rm -rf x' 'rm -rf x'
+expect_segment 'xargs -n 1 rm -rf' 'rm -rf'
+expect_segment 'env -u VAR rm -rf x' 'rm -rf x'
+expect_segment 'FOO=1 sudo rm -rf x' 'rm -rf x'
+expect_segment 'rm "-rf" /' 'rm -rf /'
+expect_segment '"rm" -rf /' 'rm -rf /'
+expect_segment 'rm -rf "/"' 'rm -rf /'
+expect_segment $'rm \\\n-rf /' 'rm -rf /'
+expect_segment 'echo "a && rm -rf y"' 'rm -rf y'
+expect_segment 'git commit -m "REX-0001: switch to pnpm"' 'REX-0001: switch to pnpm'
+expect_segment 'git commit -m "REX-0001: switch to pnpm"' 'git commit -m REX-0001: switch to pnpm'
+
 empty_count="$(command_segments ' ;; && ' | grep -c . || true)"
 expect_equals 'empty segments are dropped' '0' "$empty_count"
 

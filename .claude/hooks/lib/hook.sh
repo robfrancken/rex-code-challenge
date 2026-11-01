@@ -41,28 +41,65 @@ hook_ask() {
   hook_decide ask "$1"
 }
 
+# Print the contents of every single- or double-quoted string, one per line.
+hook_quoted_strings() {
+  CS_TEXT="$1" awk 'BEGIN {
+    s = ENVIRON["CS_TEXT"]; n = length(s); q = ""; buf = ""
+    for (i = 1; i <= n; i++) {
+      c = substr(s, i, 1)
+      if (q == "") {
+        if (c == "\047" || c == "\042") { q = c; buf = "" }
+      } else if (q == "\042" && c == "\\" && i < n) {
+        i++; buf = buf substr(s, i, 1)
+      } else if (c == q) {
+        print buf; q = ""
+      } else {
+        buf = buf c
+      }
+    }
+  }'
+}
+
 # Print one normalised simple command per line (see the task brief for the rules).
+# Quote characters are removed (so quoted flags and program names are seen), and
+# the contents of each quoted string are also normalised as extra input.
 command_segments() {
-  local line token program rest stripping
+  local text="$1" line token program rest stripping wrapper skip_next quoted
   local -a tokens
-  printf '%s\n' "$1" \
+  local backslash_newline=$'\\\n'
+  text="${text//"$backslash_newline"/}"
+  # "$(" becomes "(" first so the "$" does not survive as a stray segment.
+  printf '%s\n' "$text" \
     | sed -e 's/\$(/(/g' \
-    | tr '&;|`(){}"'"'" '\n' \
+    | tr -d "\"'" \
+    | tr '&;|`(){}' '\n' \
     | while IFS= read -r line; do
         read -r -a tokens <<<"$line" || true
         [ "${#tokens[@]}" -gt 0 ] || continue
         program=""
         rest=""
         stripping=0
+        wrapper=""
+        skip_next=0
         for token in "${tokens[@]}"; do
           if [ -z "$program" ]; then
+            if [ "$skip_next" -eq 1 ]; then
+              skip_next=0
+              continue
+            fi
             case "$token" in
               sudo | env | command | exec | nohup | time | nice | xargs)
                 stripping=1
+                wrapper="$token"
                 continue
                 ;;
               -*)
                 if [ "$stripping" -eq 1 ]; then
+                  case "$wrapper:$token" in
+                    sudo:-[ughpCU] | nice:-n | env:-[uC] | xargs:-[nILPsdEa])
+                      skip_next=1
+                      ;;
+                  esac
                   continue
                 fi
                 ;;
@@ -80,4 +117,8 @@ command_segments() {
           printf '%s%s\n' "$program" "$rest"
         fi
       done
+  while IFS= read -r quoted; do
+    [ -n "$quoted" ] && command_segments "$quoted"
+  done < <(hook_quoted_strings "$text")
+  return 0
 }
