@@ -73,6 +73,7 @@
 | S3 | Idempotency keys in Redis | none | `.env.example`, `phpunit.xml` (cache store check only) | 1 |
 | S5 | Bulk seeder: 10,000 contacts via batched inserts | S1 | `database/seeders/{BulkContactSeeder,BulkContactSeederTest,DatabaseSeeder,DatabaseSeederTest}.php`, `config/contacts.php` | 2 |
 | S2 | Wire `q` and cursor paging through Action, validation, HTTP, CLI and OpenAPI | S1 | `Application/{Actions/SearchContacts*,DTOs/SearchContactsData*,Validation/{SearchContactsValidator*,Rules/ValidContactCursor*},Assemblers/SearchContactsDataFrom*}`, `Presentation/Http/{Controllers/ContactController*,openapi.json,OpenApiContractTest.php}`, `Presentation/Console/Commands/SearchContactsCommand*` | 2 |
+| S6 | Responsive layout for small screens (Rob's request) | S4 | `resources/js/components/AppShell*`, `resources/js/modules/**` (layout classes), `resources/js/modules/contacts/components/ContactsTable*` | 4 |
 | S4 | SPA: single search box, domain chip, cursor paging | S2 | `resources/js/lib/api/schema.d.ts`, `resources/js/modules/contacts/**` | 3 |
 
 ```mermaid
@@ -80,10 +81,48 @@ graph TD
   S1 --> S2
   S1 --> S5
   S2 --> S4
+  S4 --> S6
   S3
 ```
 
-No two tasks in the same wave touch the same file. Sequential order: S1, S3, S5, S2, S4.
+No two tasks in the same wave touch the same file. Sequential order: S1, S3, S5, S2, S4, S6.
+
+---
+
+### Task S6: Responsive layout for small screens (Rob's request)
+
+The spec's non-goals say the layout "must not break on narrow screens". It currently does: the fixed-width sidebar squeezes everything on a phone. Target widths are 360–430 px phones and tablets. Desktop must look the same as now at `md` (768 px) and above.
+
+**Interfaces (Produces):**
+- **`AppShell` below `md`:**
+  - The sidebar is hidden (`hidden md:flex`).
+  - A sticky top bar shows the logo, "Rex CRM", and an icon-only menu button (lucide `Menu`, labelled "Open navigation").
+  - The button opens a shadcn `Sheet` from the left, containing the same nav and user block, including sign-out.
+  - Following a link in the sheet closes it.
+  - The top bar has `env(safe-area-inset-top)` padding.
+- **Contacts list below `md`:**
+  - The search box and the domain chip take the full width.
+  - The table shows only the avatar and name (with the "N emails · M phones" summary) plus the actions menu; the Email and Phone columns get `hidden md:table-cell`.
+  - Rows stay tappable, at least 44 px high.
+  - The page header stacks the title and the "New contact" button, and the button can become icon-plus-text full width.
+  - No horizontal page scroll at 360 px.
+- **Contact detail below `md`:** the Phones and Emails cards stack in one column, and the header card's Edit and Delete buttons wrap under the name.
+- **Create/edit sheet below `sm`:** full width (`w-full sm:max-w-md`).
+- **Login:** the card stays centred, with `px-4` page padding so it never touches the screen edges.
+
+**Steps:**
+- [ ] **1. Write the failing tests.** jsdom can't measure layout, so assert structure and classes.
+  - **`AppShell.test.tsx`:**
+    - the "Open navigation" button exists;
+    - clicking it shows a dialog containing the Contacts link and the sign-out button;
+    - clicking the Contacts link closes the sheet;
+    - the desktop sidebar has `hidden md:flex`.
+  - **`ContactsTable.test.tsx`:** the Email and Phone header cells carry `hidden md:table-cell`.
+- [ ] **2. Run them and see them fail.**
+- [ ] **3. Implement** the items listed under Interfaces. Use Tailwind responsive utilities only; no new dependencies, since `Sheet` is already installed.
+- [ ] **4. Verify visually.** Run `pnpm run build`, then use a headless browser if one is available (the in-app browser or Playwright are not installed; don't add them), or state in the report that a visual check is needed. The controller will ask Rob to check at phone width.
+- [ ] **5. Run the full checks:** `pnpm test`, `typecheck`, `lint`, `build`, and the Prettier check.
+- [ ] **6. Commit** with the message `REX-0001: responsive layout for phones and tablets`.
 
 ---
 
