@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Problems\ProblemRenderer;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -16,6 +17,11 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
+            fn (Request $request) => $request->is('api/*', 'login', 'logout') || $request->expectsJson(),
+        );
+        $exceptions->render(
+            fn (Throwable $e, Request $request) => $request->is('api/*', 'login', 'logout') || $request->expectsJson()
+                ? ProblemRenderer::render($e)
+                : null,
         );
     })->create();
