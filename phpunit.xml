@@ -5,17 +5,20 @@
          colors="true"
 >
     <testsuites>
-        <testsuite name="Unit">
-            <directory>tests/Unit</directory>
+        <testsuite name="App">
+            <directory suffix="Test.php">app</directory>
         </testsuite>
-        <testsuite name="Feature">
-            <directory>tests/Feature</directory>
+        <testsuite name="Arch">
+            <directory>tests/Arch</directory>
         </testsuite>
     </testsuites>
     <source>
         <include>
             <directory>app</directory>
         </include>
+        <exclude>
+            <directory suffix="Test.php">app</directory>
+        </exclude>
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
