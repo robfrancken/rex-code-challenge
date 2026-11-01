@@ -17,6 +17,7 @@ esac
 [ -f "$file" ] || exit 0
 
 project="${CLAUDE_PROJECT_DIR:-$(hook_field .cwd)}"
+[ -x "$project/vendor/bin/pint" ] || exit 0
 cd "$project"
 
 status=0

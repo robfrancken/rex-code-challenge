@@ -18,7 +18,7 @@ first_subcommand() {
   count="${#words[@]}"
   while [ "$index" -lt "$count" ]; do
     case "${words[$index]}" in
-      -C | --dir | -F | --filter) index=$((index + 2)) ;;
+      -C | --dir | -F | --filter | -d | --working-dir) index=$((index + 2)) ;;
       -*) index=$((index + 1)) ;;
       *)
         printf '%s' "${words[$index]}"
@@ -36,7 +36,7 @@ has_package_argument() {
   count="${#words[@]}"
   while [ "$index" -lt "$count" ]; do
     case "${words[$index]}" in
-      -C | --dir | -F | --filter)
+      -C | --dir | -F | --filter | -d | --working-dir)
         index=$((index + 1))
         ;;
       -*) ;;
@@ -70,6 +70,9 @@ check_segment() {
       ;;
     composer)
       subcommand="$(first_subcommand "$segment")"
+      if [ "$subcommand" = "global" ]; then
+        subcommand="$(first_subcommand "${segment/ global / }")"
+      fi
       case "$subcommand" in
         require | req | remove | rm | update | upgrade | u)
           hook_ask "Dependency change: [$segment]. $policy"

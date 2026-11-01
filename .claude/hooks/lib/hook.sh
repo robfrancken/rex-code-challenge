@@ -88,6 +88,9 @@ command_segments() {
               continue
             fi
             case "$token" in
+              then | do | else | elif | while | until | if | '!')
+                continue
+                ;;
               sudo | env | command | exec | nohup | time | nice | xargs)
                 stripping=1
                 wrapper="$token"

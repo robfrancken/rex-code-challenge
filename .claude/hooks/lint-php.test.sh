@@ -40,4 +40,11 @@ expect_equals 'non-php file: stderr' '' "$HOOK_STDERR"
 run_hook "$hook" "$(edit_input Edit "$fixture_dir/Missing.php" PostToolUse)"
 expect_equals 'missing php file: exit' '0' "$HOOK_EXIT"
 
+no_vendor="$HOOK_TEST_DIR/php-without-vendor"
+mkdir -p "$no_vendor"
+printf '%s' "$unformatted" >"$no_vendor/A.php"
+CLAUDE_PROJECT_DIR="$no_vendor" run_hook "$hook" "$(edit_input Edit "$no_vendor/A.php" PostToolUse)"
+expect_equals 'no pint installed: exit' '0' "$HOOK_EXIT"
+expect_equals 'no pint installed: no output' '' "$HOOK_STDOUT$HOOK_STDERR"
+
 finish_tests

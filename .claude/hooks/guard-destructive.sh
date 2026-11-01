@@ -23,6 +23,20 @@ has_arg() {
   return 1
 }
 
+# Succeeds when the parsed git checkout can discard changes: -f/--force, a --
+# token, a . argument, or a non-option argument that exists as a path in cwd.
+checkout_discards() {
+  local arg
+  for arg in ${GIT_ARGS[@]+"${GIT_ARGS[@]}"}; do
+    case "$arg" in
+      --force | -f | -- | .) return 0 ;;
+      -*) ;;
+      *) [ -e "$checkout_dir/$arg" ] && return 0 ;;
+    esac
+  done
+  return 1
+}
+
 check_git() {
   local arg
   case "$GIT_SUB" in
@@ -41,27 +55,40 @@ check_git() {
     push)
       for arg in ${GIT_ARGS[@]+"${GIT_ARGS[@]}"}; do
         case "$arg" in
-          --force* | -f* | -[!-]*f* | +*) hook_deny "Force-pushing rewrites remote history. Push normally, or ask the user. $hint" ;;
+          --force* | --delete | -d | -f* | -[!-]*f* | +* | :?*) hook_deny "Force-pushing or deleting remote refs rewrites remote history. Push normally, or ask the user. $hint" ;;
         esac
       done
       ;;
     stash)
-      if has_arg drop clear; then
+      if [ "${GIT_ARGS[0]:-}" = "drop" ] || [ "${GIT_ARGS[0]:-}" = "clear" ]; then
         hook_deny "git stash drop/clear permanently loses stashed work. Use git stash pop to keep a record, or ask the user. $hint"
       fi
       ;;
     branch)
-      if has_arg -D || { has_arg --delete && has_arg --force; }; then
+      local deletes=0 forces=0
+      for arg in ${GIT_ARGS[@]+"${GIT_ARGS[@]}"}; do
+        case "$arg" in
+          --delete) deletes=1 ;;
+          --force) forces=1 ;;
+          --*) ;;
+          -D* | -[!-]*D*) deletes=1; forces=1 ;;
+          -[!-]*)
+            case "$arg" in *d*) deletes=1 ;; esac
+            case "$arg" in *f*) forces=1 ;; esac
+            ;;
+        esac
+      done
+      if [ "$deletes" -eq 1 ] && [ "$forces" -eq 1 ]; then
         hook_deny "Force-deleting a branch loses unmerged commits. Use git branch -d, or ask the user. $hint"
       fi
       ;;
     checkout)
-      if has_arg -- .; then
+      if checkout_discards; then
         hook_deny "git checkout -- / . discards uncommitted changes. Use git switch to change branches, or ask the user. $hint"
       fi
       ;;
     restore)
-      if ! has_arg --staged || has_arg --worktree -W; then
+      if { ! has_arg --staged -S; } || has_arg --worktree -W; then
         hook_deny "git restore discards working tree changes. Use git restore --staged to unstage, or ask the user. $hint"
       fi
       ;;
@@ -69,7 +96,7 @@ check_git() {
 }
 
 check_segment() {
-  local line="$1" arg previous
+  local line="$1" arg previous is_artisan
   local -a words
   read -r -a words <<<"$line" || true
   [ "${#words[@]}" -gt 0 ] || return 0
@@ -85,17 +112,10 @@ check_segment() {
     find)
       previous=""
       for arg in "${words[@]:1}"; do
-        if [ "$arg" = "-delete" ] || { [ "$arg" = "rm" ] && { [ "$previous" = "-exec" ] || [ "$previous" = "-execdir" ]; }; }; then
+        if [ "$arg" = "-delete" ] || { [ "${arg##*/}" = "rm" ] && { [ "$previous" = "-exec" ] || [ "$previous" = "-execdir" ]; }; }; then
           hook_deny "find -delete / -exec rm can remove many files at once. Use git rm, delete a single named file with rm, or ask the user. $hint"
         fi
         previous="$arg"
-      done
-      ;;
-    php | artisan)
-      for arg in "${words[@]:1}"; do
-        case "$arg" in
-          db:wipe | migrate:fresh | migrate:reset) hook_deny "artisan $arg destroys database data. Use php artisan migrate for new migrations, or ask the user. $hint" ;;
-        esac
       done
       ;;
     git)
@@ -103,7 +123,23 @@ check_segment() {
       check_git
       ;;
   esac
+
+  is_artisan=0
+  for arg in "${words[@]}"; do
+    if [ "${arg##*/}" = "artisan" ]; then
+      is_artisan=1
+    fi
+  done
+  [ "$is_artisan" -eq 1 ] || return 0
+  for arg in "${words[@]:1}"; do
+    case "$arg" in
+      db:wipe | migrate:fresh | migrate:reset) hook_deny "artisan $arg destroys database data. Use php artisan migrate for new migrations, or ask the user. $hint" ;;
+    esac
+  done
 }
+
+checkout_dir="$(hook_field .cwd)"
+checkout_dir="${checkout_dir:-${CLAUDE_PROJECT_DIR:-.}}"
 
 command="$(hook_field .tool_input.command)"
 [ -n "$command" ] || exit 0
