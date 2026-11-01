@@ -1,7 +1,12 @@
 import { createElement, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { callContact, createContact, deleteContact } from '@/modules/contacts/api/contacts';
+import {
+    callContact,
+    createContact,
+    deleteContact,
+    type CallResult,
+} from '@/modules/contacts/api/contacts';
 import { useCallContact, useCreateContact, useDeleteContact } from '@/modules/contacts/api/hooks';
 import { contactKeys } from '@/modules/contacts/api/keys';
 
@@ -10,8 +15,14 @@ vi.mock('@/modules/contacts/api/contacts');
 const input = { name: 'Ada', emails: ['ada@example.com'], phones: ['+61412345678'] };
 const contact = { id: 'c1', ...input, created_at: null, updated_at: null };
 
+function callResult(outcome: CallResult['outcome']): CallResult {
+    return { contact_id: 'c1', phone: '+61412345678', outcome, placed_at: '2026-01-01T00:00:00Z' };
+}
+
 function setup() {
-    const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+    const queryClient = new QueryClient({
+        defaultOptions: { mutations: { retry: false, retryDelay: 0 } },
+    });
     const wrapper = ({ children }: { children: ReactNode }) =>
         createElement(QueryClientProvider, { client: queryClient }, children);
 
@@ -81,6 +92,32 @@ describe('contact hooks', () => {
 
         await waitFor(() => expect(result.current.error).toBeInstanceOf(Error));
         expect(result.current.last).toEqual(callResult);
+    });
+
+    it('useCallContact retries a network failure once with the same key', async () => {
+        vi.mocked(callContact)
+            .mockRejectedValueOnce(new Error('Network Error'))
+            .mockResolvedValueOnce(callResult('answered'));
+        const { wrapper } = setup();
+        const { result } = renderHook(() => useCallContact('c1'), { wrapper });
+
+        await act(() => result.current.call('+61412345678'));
+
+        const keys = vi.mocked(callContact).mock.calls.map((callArgs) => callArgs[2]);
+        expect(keys).toHaveLength(2);
+        expect(keys[1]).toBe(keys[0]);
+        expect(result.current.last).toEqual(callResult('answered'));
+    });
+
+    it('useCallContact leaves contact queries alone, since a call changes no contact', async () => {
+        vi.mocked(callContact).mockResolvedValue(callResult('answered'));
+        const { queryClient, wrapper } = setup();
+        const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+        const { result } = renderHook(() => useCallContact('c1'), { wrapper });
+
+        await act(() => result.current.call('+61412345678'));
+
+        expect(invalidate).not.toHaveBeenCalled();
     });
 
     it('useCallContact returns a stable call function', async () => {

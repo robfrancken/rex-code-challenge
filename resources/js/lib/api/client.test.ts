@@ -68,7 +68,9 @@ describe('api client', () => {
         await api.get('/x');
 
         expect(sent?.withCredentials).toBe(true);
-        expect(sent?.withXSRFToken).toBe(true);
+        expect(sent?.withXSRFToken).toBeUndefined();
+        expect(sent?.baseURL).toBe('/');
+        expect(sent?.allowAbsoluteUrls).toBe(false);
         expect(sent?.headers.get('Accept')).toBe('application/json');
         expect(sent?.headers.get('X-Requested-With')).toBe('XMLHttpRequest');
     });
@@ -240,5 +242,117 @@ describe('api client', () => {
 
         expect(isApiProblem(error)).toBe(false);
         expect(error).toBeInstanceOf(AxiosError);
+    });
+});
+
+interface SentRequest {
+    method: string;
+    url: string;
+    headers: Record<string, string>;
+}
+
+interface XhrReply {
+    status: number;
+    body?: unknown;
+    problem?: boolean;
+}
+
+/**
+ * Swaps in a stand-in XMLHttpRequest, so requests run through axios's real browser adapter. That
+ * adapter is where axios resolves the URL and copies the XSRF-TOKEN cookie into X-XSRF-TOKEN.
+ */
+function fakeXhr(reply: (request: SentRequest) => XhrReply): SentRequest[] {
+    const sent: SentRequest[] = [];
+
+    class FakeXMLHttpRequest {
+        onloadend: (() => void) | null = null;
+        readyState = 0;
+        status = 0;
+        statusText = '';
+        responseText = '';
+        responseURL = '';
+        timeout = 0;
+        withCredentials = false;
+        private request: SentRequest = { method: '', url: '', headers: {} };
+        private contentType = 'application/json';
+
+        open(method: string, url: string) {
+            this.request = { method, url, headers: {} };
+        }
+
+        setRequestHeader(name: string, value: string) {
+            this.request.headers[name.toLowerCase()] = value;
+        }
+
+        getAllResponseHeaders() {
+            return `content-type: ${this.contentType}\r\n`;
+        }
+
+        send() {
+            sent.push(this.request);
+            const { status, body = {}, problem = false } = reply(this.request);
+            this.status = status;
+            this.readyState = 4;
+            this.contentType = problem ? 'application/problem+json' : 'application/json';
+            this.responseText = JSON.stringify(body);
+            queueMicrotask(() => this.onloadend?.());
+        }
+
+        abort() {}
+    }
+
+    vi.stubGlobal('XMLHttpRequest', FakeXMLHttpRequest);
+    api.defaults.adapter = 'xhr';
+
+    return sent;
+}
+
+function setXsrfCookie(value: string) {
+    document.cookie = `XSRF-TOKEN=${value}; path=/`;
+}
+
+describe('api client through the browser adapter', () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+        document.cookie = 'XSRF-TOKEN=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+    });
+
+    it('sends the XSRF-TOKEN cookie back as X-XSRF-TOKEN on a same-origin request', async () => {
+        setXsrfCookie('token-1');
+        const sent = fakeXhr(() => ({ status: 200 }));
+
+        await api.post('/api/v1/contacts', {});
+
+        expect(sent[0].headers['x-xsrf-token']).toBe('token-1');
+    });
+
+    it('retries a 419 with the X-XSRF-TOKEN from the refreshed cookie', async () => {
+        setXsrfCookie('stale');
+        const sent = fakeXhr((request) => {
+            if (request.method === 'GET') {
+                setXsrfCookie('fresh');
+
+                return { status: 200 };
+            }
+
+            return request.headers['x-xsrf-token'] === 'fresh'
+                ? { status: 201, body: { ok: true } }
+                : { status: 419, problem: true, body: problemBody(419, 'csrf_token_mismatch') };
+        });
+
+        const response = await api.post('/api/v1/contacts', {});
+
+        expect(response.data).toEqual({ ok: true });
+        expect(
+            sent.map(({ method, url, headers }) => `${method} ${url} ${headers['x-xsrf-token']}`),
+        ).toEqual(['POST /api/v1/contacts stale', 'GET / stale', 'POST /api/v1/contacts fresh']);
+    });
+
+    it('keeps a request for an absolute URL on this origin', async () => {
+        const sent = fakeXhr(() => ({ status: 200 }));
+
+        await api.get('https://evil.example/steal');
+
+        expect(sent[0].url).toBe('/https://evil.example/steal');
     });
 });

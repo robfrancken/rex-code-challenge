@@ -137,6 +137,12 @@ describe('LoginPage', () => {
         );
     });
 
+    it('titles the page', async () => {
+        renderLogin();
+
+        await waitFor(() => expect(document.title).toBe('Sign in · Rex CRM'));
+    });
+
     it('hides the demo hint in production', () => {
         setEnv('production');
         renderLogin();

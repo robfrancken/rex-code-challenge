@@ -53,6 +53,25 @@ describe('AppShell sign out', () => {
         expect(queryClient.getQueryData(meQueryKey)).toBeUndefined();
     });
 
+    it('treats a 401 from logout as already signed out, without an error toast', async () => {
+        vi.mocked(logout).mockRejectedValue(
+            new ApiProblem({
+                type: 't',
+                title: 'Unauthenticated',
+                status: 401,
+                detail: 'No session.',
+                code: 'unauthenticated',
+            }),
+        );
+        const { router, queryClient } = renderShell();
+
+        await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+
+        await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
+        expect(queryClient.getQueryData(meQueryKey)).toBeUndefined();
+        expect(toast.error).not.toHaveBeenCalled();
+    });
+
     it('stays put and shows a toast when logout fails', async () => {
         vi.mocked(logout).mockRejectedValue(
             new ApiProblem({

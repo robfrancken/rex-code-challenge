@@ -78,6 +78,14 @@ describe('CallOutcome', () => {
         expect(screen.getByText('No calls yet. Use Call next to a number.')).toBeInTheDocument();
     });
 
+    it('announces outcomes politely to screen readers', () => {
+        render(<CallOutcome result={undefined} error={null} isPending={false} />);
+
+        expect(
+            screen.getByText('No calls yet. Use Call next to a number.').closest('[aria-live]'),
+        ).toHaveAttribute('aria-live', 'polite');
+    });
+
     it('shows a placing message while pending', () => {
         render(<CallOutcome result={undefined} error={null} isPending />);
 

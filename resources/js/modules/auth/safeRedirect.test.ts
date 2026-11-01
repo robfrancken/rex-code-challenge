@@ -6,6 +6,10 @@ describe('safeRedirect', () => {
         expect(safeRedirect('/contacts?page=2')).toBe('/contacts?page=2');
     });
 
+    it('keeps the search and hash of a same-origin path', () => {
+        expect(safeRedirect('/contacts?name=smi&page=2#top')).toBe('/contacts?name=smi&page=2#top');
+    });
+
     it.each([
         ['//evil.example'],
         ['https://evil.example'],
@@ -13,7 +17,12 @@ describe('safeRedirect', () => {
         ['javascript:alert(1)'],
         [''],
         ['/\\evil.example'],
-    ])('falls back to /contacts for %s', (value) => {
+        ['/\t/evil.example'],
+        ['/\n/evil.example'],
+        ['/\r\n/evil.example'],
+        ['/contacts\u0000'],
+        ['//['],
+    ])('falls back to /contacts for %j', (value) => {
         expect(safeRedirect(value)).toBe('/contacts');
     });
 });

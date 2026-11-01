@@ -10,16 +10,18 @@ import { isApiProblem } from '@/lib/api/problem';
 import { emailDomain } from '@/lib/format/emailDomain';
 import { formatPhone } from '@/lib/format/phone';
 import { relativeTime } from '@/lib/format/relativeTime';
+import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { useCallContact, useContact } from '@/modules/contacts/api/hooks';
 import { CallOutcome } from '@/modules/contacts/components/CallOutcome';
 import { ContactAvatar } from '@/modules/contacts/components/ContactAvatar';
 import { ContactNotFound } from '@/modules/contacts/components/ContactNotFound';
 import { DeleteContactDialog } from '@/modules/contacts/components/DeleteContactDialog';
 import { PhoneNumber } from '@/modules/contacts/components/PhoneNumber';
+import type { ContactSheetState } from '@/modules/contacts/routes/ContactSheet';
 
 function DetailSkeleton() {
     return (
-        <div className="space-y-4" data-testid="detail-skeleton">
+        <div className="space-y-4" data-testid="detail-skeleton" aria-busy="true">
             <Skeleton className="h-24 w-full rounded-xl" />
             <div className="grid gap-4 md:grid-cols-2">
                 <Skeleton className="h-32 rounded-xl" />
@@ -41,6 +43,7 @@ function ContactDetail({ id }: { id: string }) {
     const { data: contact, error, isPending } = useContact(id);
     const { call, last, error: callError, isPending: isCalling } = useCallContact(id);
     const [confirmingDelete, setConfirmingDelete] = useState(false);
+    useDocumentTitle(contact?.name ?? 'Contact');
 
     if (isPending) {
         return <DetailSkeleton />;
@@ -73,7 +76,10 @@ function ContactDetail({ id }: { id: string }) {
                     )}
                 </div>
                 <Button variant="outline" asChild>
-                    <Link to="edit">
+                    <Link
+                        to="edit"
+                        state={{ returnTo: `/contacts/${contact.id}` } satisfies ContactSheetState}
+                    >
                         <Pencil className="size-4" aria-hidden />
                         Edit
                     </Link>

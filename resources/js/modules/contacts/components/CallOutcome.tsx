@@ -89,7 +89,7 @@ export function CallOutcome({ result, error, isPending }: CallOutcomeProps) {
     const hasContent = isPending || Boolean(error) || result !== undefined;
 
     return (
-        <div className="mt-4 space-y-3">
+        <div className="mt-4 space-y-3" aria-live="polite">
             {isPending && (
                 <div className="text-muted-foreground flex items-center gap-2 text-sm">
                     <Loader2 className="size-4 animate-spin" aria-hidden />

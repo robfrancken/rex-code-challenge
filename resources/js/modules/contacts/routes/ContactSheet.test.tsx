@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { RouterProvider, createMemoryRouter, Outlet } from 'react-router';
+import { RouterProvider, createMemoryRouter, Outlet, type InitialEntry } from 'react-router';
 import { toast } from 'sonner';
 import { ApiProblem } from '@/lib/api/problem';
 import { createContact, getContact, updateContact } from '@/modules/contacts/api/contacts';
@@ -20,7 +20,7 @@ function testQueryClient() {
     return new QueryClient({ defaultOptions: { queries: { retry: false } } });
 }
 
-function renderSheet(initialEntry: string, queryClient = testQueryClient()) {
+function renderSheet(initialEntry: InitialEntry, queryClient = testQueryClient()) {
     const router = createMemoryRouter(
         [
             {
@@ -180,6 +180,14 @@ describe('ContactSheet', () => {
         expect(screen.getByRole('button', { name: 'Save contact' })).toBeInTheDocument();
     });
 
+    it('marks the edit form as busy while the contact loads, and titles the page', async () => {
+        vi.mocked(getContact).mockReturnValue(new Promise(() => undefined));
+        renderSheet('/contacts/c0ffee00-0000-4000-8000-000000000001/edit');
+
+        expect(await screen.findByTestId('edit-skeleton')).toHaveAttribute('aria-busy', 'true');
+        expect(document.title).toBe('Edit contact · Rex CRM');
+    });
+
     it('shows the not-found state inside the sheet when editing a missing contact', async () => {
         vi.mocked(getContact).mockRejectedValue(
             new ApiProblem({
@@ -202,5 +210,31 @@ describe('ContactSheet', () => {
 
         await waitFor(() => expect(router.state.location.pathname).toBe('/contacts'));
         expect(router.state.location.search).toBe('?name=smi&page=2');
+    });
+
+    it.each([['//evil.example'], ['https://evil.example'], [42]])(
+        'ignores an unsafe returnTo (%s) and closes to the list',
+        async (returnTo) => {
+            const router = renderSheet({ pathname: '/contacts/new', state: { returnTo } });
+
+            await userEvent.click(await screen.findByRole('button', { name: 'Close' }));
+
+            await waitFor(() => expect(router.state.location.pathname).toBe('/contacts'));
+        },
+    );
+
+    it('closing an edit opened from the detail page returns to that page', async () => {
+        const existing = makeContact();
+        vi.mocked(getContact).mockResolvedValue(existing);
+        const router = renderSheet({
+            pathname: `/contacts/${existing.id}/edit`,
+            state: { returnTo: `/contacts/${existing.id}` },
+        });
+
+        await userEvent.click(await screen.findByRole('button', { name: 'Close' }));
+
+        await waitFor(() =>
+            expect(router.state.location.pathname).toBe(`/contacts/${existing.id}`),
+        );
     });
 });

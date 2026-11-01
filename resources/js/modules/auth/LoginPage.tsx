@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { firstFieldError, isApiProblem, isValidationProblem } from '@/lib/api/problem';
 import { isProduction } from '@/lib/env';
+import { useDocumentTitle } from '@/lib/useDocumentTitle';
 import { login, meQueryKey, type User } from '@/modules/auth/api';
 import { safeRedirect } from '@/modules/auth/safeRedirect';
 
@@ -32,6 +33,7 @@ function loginErrorMessage(error: unknown): string {
 }
 
 export function LoginPage() {
+    useDocumentTitle('Sign in');
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const queryClient = useQueryClient();

@@ -20,6 +20,7 @@ function renderDetail() {
         [
             { path: '/contacts', element: <p>List page</p> },
             { path: '/contacts/:id', element: <ContactDetailPage /> },
+            { path: '/contacts/:id/edit', element: <p>Edit sheet</p> },
         ],
         { initialEntries: [`/contacts/${contact.id}`] },
     );
@@ -42,6 +43,20 @@ describe('ContactDetailPage', () => {
     });
     afterEach(() => vi.unstubAllGlobals());
 
+    it('marks the skeleton as busy while the contact loads', async () => {
+        vi.mocked(getContact).mockReturnValue(new Promise(() => undefined));
+        renderDetail();
+
+        expect(await screen.findByTestId('detail-skeleton')).toHaveAttribute('aria-busy', 'true');
+    });
+
+    it("titles the page with the contact's name", async () => {
+        renderDetail();
+
+        await screen.findByRole('heading', { name: 'Chloe Smith' });
+        expect(document.title).toBe('Chloe Smith · Rex CRM');
+    });
+
     it('shows the contact with grouped phones and emails', async () => {
         renderDetail();
 
@@ -52,6 +67,15 @@ describe('ContactDetailPage', () => {
             'href',
             `/contacts/${contact.id}/edit`,
         );
+    });
+
+    it('opens Edit with the detail page as the place to return to', async () => {
+        const router = renderDetail();
+
+        await userEvent.click(await screen.findByRole('link', { name: 'Edit' }));
+
+        expect(router.state.location.pathname).toBe(`/contacts/${contact.id}/edit`);
+        expect(router.state.location.state).toEqual({ returnTo: `/contacts/${contact.id}` });
     });
 
     it('calls the second phone with its number and a uuid idempotency key, then shows the outcome', async () => {
@@ -125,5 +149,17 @@ describe('ContactDetailPage', () => {
         await waitFor(() => expect(router.state.location.pathname).toBe('/contacts'));
         expect(deleteContact).toHaveBeenCalledWith(contact.id);
         expect(toast.success).toHaveBeenCalledWith('Contact deleted');
+    });
+
+    it('leaves after a delete without fetching the deleted contact again', async () => {
+        vi.mocked(deleteContact).mockResolvedValue(undefined);
+        const router = renderDetail();
+        await userEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+
+        const dialog = await screen.findByRole('alertdialog');
+        await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+        await waitFor(() => expect(router.state.location.pathname).toBe('/contacts'));
+        expect(getContact).toHaveBeenCalledTimes(1);
     });
 });

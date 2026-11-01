@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { NavLink, Outlet, useNavigate } from 'react-router';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { problemMessage } from '@/lib/api/problem';
+import { isApiProblem, problemMessage } from '@/lib/api/problem';
 import { initials } from '@/lib/format/initials';
 import { cn } from '@/lib/utils';
 import { logout } from '@/modules/auth/api';
@@ -15,14 +15,17 @@ export function AppShell() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
 
+    /** A 401 means the session had already ended, which is the outcome signing out wants. */
     async function signOut() {
         try {
             await logout();
         } catch (error) {
-            const { title, detail } = problemMessage(error, 'Could not sign out');
-            toast.error(title, { description: detail });
+            if (!(isApiProblem(error) && error.status === 401)) {
+                const { title, detail } = problemMessage(error, 'Could not sign out');
+                toast.error(title, { description: detail });
 
-            return;
+                return;
+            }
         }
 
         await navigate('/login');

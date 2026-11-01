@@ -68,20 +68,16 @@ export function useDeleteContact() {
 /**
  * Places calls for one contact. A network failure is retried once with the same key, so the server
  * places at most one call. `last` is the most recent successful result and survives later failures;
- * `call` never throws, because `error` is exposed for rendering.
+ * `call` never throws, because `error` is exposed for rendering. A call changes no contact data, so
+ * no query is invalidated.
  */
 export function useCallContact(id: string) {
-    const invalidate = useInvalidateContacts();
     const [last, setLast] = useState<CallResult | undefined>(undefined);
     const { mutateAsync, error, isPending } = useMutation({
         mutationFn: ({ phone, idempotencyKey }: { phone: string; idempotencyKey: string }) =>
             callContact(id, phone, idempotencyKey),
         retry: (failureCount, error) => !isApiProblem(error) && failureCount < 1,
-        onSuccess: (result) => {
-            setLast(result);
-
-            return invalidate();
-        },
+        onSuccess: setLast,
     });
 
     const call = useCallback(

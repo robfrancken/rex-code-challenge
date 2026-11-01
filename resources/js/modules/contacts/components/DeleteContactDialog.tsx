@@ -16,11 +16,14 @@ import { useDeleteContact } from '@/modules/contacts/api/hooks';
 interface DeleteContactDialogProps {
     contact: Pick<Contact, 'id' | 'name'>;
     onClose: () => void;
-    /** Runs after a successful delete, once the dialog has closed. */
+    /**
+     * Runs after a successful delete instead of `onClose`, typically to leave the page, so the
+     * page never re-renders (and refetches) the contact that is gone.
+     */
     onDeleted?: () => void;
 }
 
-/** Mount it to ask for confirmation; `onClose` fires when the user cancels. */
+/** Mount it to ask for confirmation; `onClose` fires on cancel, a failure, or a delete without `onDeleted`. */
 export function DeleteContactDialog({ contact, onClose, onDeleted }: DeleteContactDialogProps) {
     const { mutateAsync, isPending } = useDeleteContact();
 
@@ -36,8 +39,7 @@ export function DeleteContactDialog({ contact, onClose, onDeleted }: DeleteConta
         }
 
         toast.success('Contact deleted');
-        onClose();
-        onDeleted?.();
+        (onDeleted ?? onClose)();
     }
 
     return (

@@ -6,9 +6,16 @@ type RetryableConfig = InternalAxiosRequestConfig & { _retried419?: boolean };
 
 const PROBLEM_CONTENT_TYPE = 'application/problem+json';
 
+/**
+ * The one HTTP client for the same-origin API. Axios copies the XSRF-TOKEN cookie into the
+ * X-XSRF-TOKEN header for same-origin requests by default, so `withXSRFToken` stays unset: `true`
+ * would send the token to any origin. `allowAbsoluteUrls: false` keeps every request on the base
+ * URL, so a full URL can never take the session cookie or token elsewhere.
+ */
 export const api = axios.create({
+    baseURL: '/',
+    allowAbsoluteUrls: false,
     withCredentials: true,
-    withXSRFToken: true,
     headers: {
         Accept: 'application/json',
         'X-Requested-With': 'XMLHttpRequest',

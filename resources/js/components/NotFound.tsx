@@ -1,7 +1,10 @@
 import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
+import { useDocumentTitle } from '@/lib/useDocumentTitle';
 
 export function NotFound() {
+    useDocumentTitle('Page not found');
+
     return (
         <div className="grid min-h-[50vh] place-items-center p-6 text-center">
             <div className="space-y-3">

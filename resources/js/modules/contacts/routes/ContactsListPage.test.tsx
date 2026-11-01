@@ -71,6 +71,26 @@ describe('ContactsListPage', () => {
 
     afterEach(() => vi.useRealTimers());
 
+    it('marks the table body as busy while the first page loads', async () => {
+        vi.mocked(searchContacts).mockReturnValue(new Promise(() => undefined));
+        renderList();
+
+        const [firstSkeletonRow] = await screen.findAllByTestId('skeleton-row');
+        expect(firstSkeletonRow.closest('tbody')).toHaveAttribute('aria-busy', 'true');
+    });
+
+    it('titles the page, hands the title to an open sheet and takes it back on close', async () => {
+        renderList();
+        await screen.findByText('Chloe Smith');
+        expect(document.title).toBe('Contacts · Rex CRM');
+
+        await userEvent.click(screen.getByRole('link', { name: 'New contact' }));
+        await waitFor(() => expect(document.title).toBe('New contact · Rex CRM'));
+
+        await userEvent.click(await screen.findByRole('button', { name: 'Close' }));
+        await waitFor(() => expect(document.title).toBe('Contacts · Rex CRM'));
+    });
+
     it('renders the rows with formatted phones, counts and the total', async () => {
         renderList();
 
@@ -80,6 +100,27 @@ describe('ContactsListPage', () => {
         expect(screen.getByText('2 emails · 2 phones')).toBeInTheDocument();
         expect(screen.getByText('40 contacts')).toBeInTheDocument();
         expect(screen.getByText('Showing 1–2 of 40')).toBeInTheDocument();
+    });
+
+    it('counts a single contact in the singular', async () => {
+        vi.mocked(searchContacts).mockResolvedValue(makePage([chloe]));
+        renderList();
+
+        expect(await screen.findByText('1 contact')).toBeInTheDocument();
+    });
+
+    it('moves to the last page, replacing history, when the page is past the end', async () => {
+        vi.mocked(searchContacts).mockImplementation(async (params) =>
+            params.page === 5
+                ? makePage([], { current_page: 5, last_page: 2, total: 30, from: null, to: null })
+                : makePage([chloe], { current_page: 2, last_page: 2, total: 30, from: 26, to: 30 }),
+        );
+        const router = renderList('/contacts?name=c&page=5');
+
+        await waitFor(() => expect(router.state.location.search).toBe('?name=c&page=2'));
+        expect(router.state.historyAction).toBe('REPLACE');
+        expect(await screen.findByText('Chloe Smith')).toBeInTheDocument();
+        expect(screen.queryByText('No contacts match your search')).not.toBeInTheDocument();
     });
 
     it('writes the name filter to the url after the debounce', async () => {
@@ -92,6 +133,17 @@ describe('ContactsListPage', () => {
         await act(() => vi.advanceTimersByTimeAsync(300));
 
         expect(router.state.location.search).toBe('?name=smi');
+    });
+
+    it('replaces the history entry for a typed filter, so Back skips the keystrokes', async () => {
+        const router = renderList();
+        await screen.findByText('Chloe Smith');
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+
+        await typeAndDebounce('Name', 'smi');
+
+        expect(router.state.location.search).toBe('?name=smi');
+        expect(router.state.historyAction).toBe('REPLACE');
     });
 
     it('drops the page param when a filter changes', async () => {
@@ -111,6 +163,7 @@ describe('ContactsListPage', () => {
         await userEvent.click(screen.getByRole('button', { name: 'Filter by rex.com.au' }));
 
         expect(router.state.location.search).toBe('?email_domain=rex.com.au');
+        expect(router.state.historyAction).toBe('PUSH');
         expect(screen.getByLabelText('Email domain')).toHaveValue('rex.com.au');
     });
 
