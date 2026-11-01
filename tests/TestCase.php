@@ -22,7 +22,7 @@ abstract class TestCase extends BaseTestCase
 
     /**
      * InnoDB only indexes FULLTEXT rows on commit, so tests in the fulltext group
-     * run without the per-test transaction and are cleaned up by truncation instead.
+     * run without the per-test transaction and empty their tables instead.
      */
     public function beginDatabaseTransaction()
     {
@@ -33,10 +33,10 @@ abstract class TestCase extends BaseTestCase
             return;
         }
 
-        $this->truncateFulltextTables();
+        $this->emptyFulltextTables();
 
         $this->beforeApplicationDestroyed(function (): void {
-            $this->truncateFulltextTables();
+            $this->emptyFulltextTables();
             DB::disconnect();
         });
     }
@@ -58,23 +58,16 @@ abstract class TestCase extends BaseTestCase
     }
 
     /**
-     * TRUNCATE recreates the table and its FULLTEXT indexes, and the stopword setting
-     * of the session doing so decides whether the rebuilt index drops words like "it".
+     * DELETE rather than TRUNCATE: TRUNCATE recreates each table and rebuilds its FULLTEXT
+     * indexes, which is slow and rebuilds them under the session's stopword setting.
+     * MATCH already skips deleted rows, so the indexes the migration built stay valid.
      */
-    private function truncateFulltextTables(): void
+    private function emptyFulltextTables(): void
     {
-        $previous = (int) DB::selectOne('select @@session.innodb_ft_enable_stopword as value')->value;
-
-        DB::statement('set session innodb_ft_enable_stopword = off');
-
-        try {
-            Schema::withoutForeignKeyConstraints(function (): void {
-                foreach (self::FULLTEXT_TABLES as $table) {
-                    DB::table($table)->truncate();
-                }
-            });
-        } finally {
-            DB::statement('set session innodb_ft_enable_stopword = ?', [$previous]);
-        }
+        Schema::withoutForeignKeyConstraints(function (): void {
+            foreach (self::FULLTEXT_TABLES as $table) {
+                DB::table($table)->delete();
+            }
+        });
     }
 }

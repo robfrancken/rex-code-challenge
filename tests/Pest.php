@@ -85,14 +85,22 @@ function failTimeLimitedQueries(int $code = 3024): void
 }
 
 /**
- * Rebuilds the name FULLTEXT index the way a table rebuild on a server with stopwords on would.
- * Only for tests in the fulltext group: the base TestCase truncates the table afterwards, which
- * rebuilds the index with stopwords off again.
+ * Runs $assertions while the name FULLTEXT index is rebuilt the way a table rebuild on a server
+ * with stopwords on would leave it, then rebuilds it with stopwords off so later tests see a sound index.
  */
-function rebuildNameIndexWithStopwords(): void
+function withNameIndexRebuiltWithStopwords(callable $assertions): void
 {
-    DB::statement('set session innodb_ft_enable_stopword = on');
-    DB::statement('alter table contacts force');
+    $previous = (int) DB::selectOne('select @@session.innodb_ft_enable_stopword as value')->value;
+
+    try {
+        DB::statement('set session innodb_ft_enable_stopword = on');
+        DB::statement('alter table contacts force');
+        $assertions();
+    } finally {
+        DB::statement('set session innodb_ft_enable_stopword = off');
+        DB::statement('alter table contacts force');
+        DB::statement('set session innodb_ft_enable_stopword = ?', [$previous]);
+    }
 }
 
 /**

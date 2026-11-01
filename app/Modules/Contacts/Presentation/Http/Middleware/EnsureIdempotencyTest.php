@@ -7,6 +7,7 @@ use App\Modules\Contacts\Domain\Telephony\CallOutcome;
 use App\Modules\Contacts\Presentation\Http\Middleware\EnsureIdempotency;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Sleep;
 
 beforeEach(function (): void {
     $this->actingAs(User::factory()->create());
@@ -101,6 +102,7 @@ it('returns 409 with Retry-After when a request with the same key is in flight',
     $cacheKey = sprintf('idempotency:%s:%s:%s', $user->getAuthIdentifier(), 'contacts.calls.store', hash('sha256', 'abc'));
     $lock = Cache::lock($cacheKey.':lock', 30);
     expect($lock->get())->toBeTrue();
+    Sleep::fake(syncWithCarbon: true);
 
     $this->postJson(route('contacts.calls.store', $id), [], ['Idempotency-Key' => 'abc'])
         ->assertStatus(409)

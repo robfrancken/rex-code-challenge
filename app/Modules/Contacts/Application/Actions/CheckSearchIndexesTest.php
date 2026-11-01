@@ -27,13 +27,14 @@ it('finds the same names through the index and LIKE', function (): void {
 
 it('notices an index rebuilt with stopwords', function (): void {
     ContactFactory::new()->create(['name' => 'Jane Andrews']);
-    rebuildNameIndexWithStopwords();
 
-    $health = app(CheckSearchIndexes::class)->handle();
+    withNameIndexRebuiltWithStopwords(function (): void {
+        $health = app(CheckSearchIndexes::class)->handle();
 
-    expect($health->nameMatchesByLike)->toBe(1)
-        ->and($health->nameMatchesByFullText)->toBe(0)
-        ->and($health->isHealthy())->toBeFalse();
+        expect($health->nameMatchesByLike)->toBe(1)
+            ->and($health->nameMatchesByFullText)->toBe(0)
+            ->and($health->isHealthy())->toBeFalse();
+    });
 })->group('fulltext');
 
 it('notices a missing index', function (): void {
