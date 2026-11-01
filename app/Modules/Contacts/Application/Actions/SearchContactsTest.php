@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Modules\Contacts\Application\Actions\SearchContacts;
 use App\Modules\Contacts\Application\DTOs\SearchContactsData;
+use App\Modules\Contacts\Application\Validation\SearchContactsValidator;
 use Database\Factories\Contacts\ContactEmailFactory;
 use Database\Factories\Contacts\ContactFactory;
 use Database\Factories\Contacts\ContactPhoneFactory;
@@ -30,6 +31,17 @@ it('finds by phone digits', function (): void {
     ContactPhoneFactory::new()->for($other)->create(['phone' => '+61498765432']);
 
     expect(searchNames(new SearchContactsData(null, '1234', null)))->toBe(['Match']);
+});
+
+it('finds an E.164 number when searching by its local format', function (): void {
+    $match = ContactFactory::new()->create(['name' => 'Match']);
+    ContactPhoneFactory::new()->for($match)->create(['phone' => '+61412345678']);
+    $other = ContactFactory::new()->create(['name' => 'Other']);
+    ContactPhoneFactory::new()->for($other)->create(['phone' => '+61498765432']);
+
+    $validated = app(SearchContactsValidator::class)->validate(['phone' => '0412 345 678']);
+
+    expect(searchNames(SearchContactsData::fromValidated($validated)))->toBe(['Match']);
 });
 
 it('finds by exact email domain', function (): void {

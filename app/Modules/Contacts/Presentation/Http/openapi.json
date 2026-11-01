@@ -112,12 +112,12 @@
           {
             "name": "phone",
             "in": "query",
-            "description": "A full or partial phone number. Formatting (spaces, dashes, parentheses, leading +) is allowed and ignored: the value is reduced to digits and matched as a substring of stored phone numbers.",
+            "description": "A full or partial phone number. Formatting (spaces, dashes, parentheses, leading +) is allowed and ignored: the value is reduced to digits, one leading trunk 0 is dropped (so the local `0412 345 678` finds `+61412345678`), and the result is matched as a substring of stored phone numbers.",
             "schema": {
               "type": "string",
               "maxLength": 25,
               "pattern": "^\\+?[\\s\\-(]*[0-9][0-9\\s\\-()]*$",
-              "examples": ["+61 412", "(04) 1234-5678"]
+              "examples": ["+61 412", "0412 345 678"]
             }
           },
           {

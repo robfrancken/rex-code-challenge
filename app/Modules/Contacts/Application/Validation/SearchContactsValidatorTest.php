@@ -22,13 +22,33 @@ it('accepts valid filters', function (): void {
 
 it('normalises phone to digits and lowercases the domain after validating', function (): void {
     $validated = app(SearchContactsValidator::class)->validate([
-        'phone' => '(04) 1234-5678',
+        'phone' => '+61 (4) 1234-5678',
         'email_domain' => 'REX.com.au',
     ]);
 
-    expect($validated['phone'])->toBe('0412345678')
+    expect($validated['phone'])->toBe('61412345678')
         ->and($validated['email_domain'])->toBe('rex.com.au');
 });
+
+it('drops one leading trunk zero from the phone', function (
+    string $phone,
+    string $expected,
+): void {
+    expect(app(SearchContactsValidator::class)->validate(['phone' => $phone])['phone'])->toBe($expected);
+})->with([
+    'local mobile' => [
+        '(04) 1234-5678',
+        '412345678',
+    ],
+    'only one zero' => [
+        '00412',
+        '0412',
+    ],
+    'a lone zero is kept' => [
+        '0',
+        '0',
+    ],
+]);
 
 it('rejects invalid filters', function (
     array $input,

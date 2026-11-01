@@ -49,7 +49,7 @@ it('rejects a phone filter that has no digits', function (): void {
 it('strips formatting from the phone', function (): void {
     $data = app(SearchContactsDataFromRequest::class)->assemble(Request::create('/', 'GET', ['phone' => '(04) 1234-5678']));
 
-    expect($data->phoneDigits)->toBe('0412345678');
+    expect($data->phoneDigits)->toBe('412345678');
 });
 
 it('rejects an oversized page size', function (): void {
