@@ -70,22 +70,26 @@ describe('api client', () => {
     });
 
     it('retries a 419 once and resolves when the retry succeeds', async () => {
-        const mock = respondWith({ status: 419, problem: true, data: problemBody(419, 'csrf_token_mismatch') }, { status: 200, data: { ok: true } });
+        const mock = respondWith({ status: 419, problem: true, data: problemBody(419, 'csrf_token_mismatch') }, { status: 200 }, { status: 200, data: { ok: true } });
 
         const response = await api.post('/api/v1/contacts', { name: 'x' });
 
         expect(response.data).toEqual({ ok: true });
-        expect(mock.calls()).toBe(2);
+        expect(mock.calls()).toBe(3);
     });
 
     it('rejects with an ApiProblem when the retry is also a 419', async () => {
-        const mock = respondWith({ status: 419, problem: true, data: problemBody(419, 'csrf_token_mismatch') });
+        const mock = respondWith(
+            { status: 419, problem: true, data: problemBody(419, 'csrf_token_mismatch') },
+            { status: 200 },
+            { status: 419, problem: true, data: problemBody(419, 'csrf_token_mismatch') },
+        );
 
         const error = await api.post('/api/v1/contacts', {}).catch((e: unknown) => e);
 
         expect(isApiProblem(error)).toBe(true);
         expect(error).toMatchObject({ status: 419 });
-        expect(mock.calls()).toBe(2);
+        expect(mock.calls()).toBe(3);
     });
 
     it('calls the registered handler on a 401 and still rejects', async () => {
@@ -101,6 +105,70 @@ describe('api client', () => {
         unsubscribe();
         await api.get('/api/v1/me').catch(() => undefined);
         expect(handler).toHaveBeenCalledOnce();
+    });
+
+    it('refreshes the csrf cookie with GET / before retrying a 419', async () => {
+        const seen: string[] = [];
+        let post = 0;
+        api.defaults.adapter = (config) => {
+            seen.push(`${config.method?.toUpperCase()} ${config.url}`);
+            const response = (status: number, problem: boolean, data: unknown) =>
+                ({
+                    status,
+                    statusText: '',
+                    data,
+                    headers: { 'content-type': problem ? 'application/problem+json' : 'text/html' },
+                    config,
+                }) as AxiosResponse;
+            if (config.method === 'get') {
+                return Promise.resolve(response(200, false, '<html>'));
+            }
+            post += 1;
+            return post === 1
+                ? Promise.reject(new AxiosError('x', '419', config, null, response(419, true, problemBody(419, 'csrf_token_mismatch'))))
+                : Promise.resolve(response(200, false, {}));
+        };
+
+        await api.post('/api/v1/contacts', {});
+
+        expect(seen).toEqual(['POST /api/v1/contacts', 'GET /', 'POST /api/v1/contacts']);
+    });
+
+    it('rejects with the original 419 problem when the refresh fails', async () => {
+        api.defaults.adapter = (config) => {
+            const fail = (status: number, data: unknown) =>
+                Promise.reject(
+                    new AxiosError('x', String(status), config, null, {
+                        status,
+                        statusText: '',
+                        data,
+                        headers: { 'content-type': 'application/problem+json' },
+                        config,
+                    } as AxiosResponse),
+                );
+            return config.method === 'get' ? fail(500, problemBody(500, 'server_error')) : fail(419, problemBody(419, 'csrf_token_mismatch'));
+        };
+
+        const error = await api.post('/api/v1/contacts', {}).catch((e: unknown) => e);
+
+        expect(error).toMatchObject({ status: 419, code: 'csrf_token_mismatch' });
+    });
+
+    it('ignores an empty or non-numeric Retry-After', async () => {
+        respondWith({ status: 429, problem: true, data: problemBody(429, 'too_many_requests'), headers: { 'retry-after': '' } });
+        expect(await api.get('/x').catch((e: unknown) => e)).toMatchObject({ retryAfter: undefined });
+
+        respondWith({ status: 429, problem: true, data: problemBody(429, 'too_many_requests'), headers: { 'retry-after': 'soon' } });
+        expect(await api.get('/x').catch((e: unknown) => e)).toMatchObject({ retryAfter: undefined });
+    });
+
+    it('rejects a malformed problem body with a generic ApiProblem', async () => {
+        respondWith({ status: 502, problem: true, data: 'not an object' });
+
+        const error = await api.get('/x').catch((e: unknown) => e);
+
+        expect(isApiProblem(error)).toBe(true);
+        expect(error).toMatchObject({ status: 502, code: 'server_error', title: 'Unexpected response' });
     });
 
     it('passes non-problem errors through untouched', async () => {

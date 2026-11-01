@@ -40,3 +40,22 @@ it('keeps the health endpoint out of the shell', function (): void {
 it('does not serve the shell for paths with a file extension', function (): void {
     $this->get('/missing.js')->assertNotFound();
 });
+
+it('serves the shell on GET login and logout', function (): void {
+    $this->get('/login')->assertOk()->assertSee('id="app"', false);
+    $this->get('/logout')->assertOk()->assertSee('id="app"', false);
+});
+
+it('keeps POST logout working for a signed in user', function (): void {
+    $this->actingAs(User::factory()->create());
+
+    $this->postJson('/logout')->assertNoContent();
+});
+
+it('returns a json 404 problem for the bare api path', function (): void {
+    $this->getJson('/api')->assertNotFound()->assertJsonPath('code', 'not_found');
+});
+
+it('serves the shell for paths that merely start with api', function (): void {
+    $this->get('/apiary')->assertOk()->assertSee('id="app"', false);
+});

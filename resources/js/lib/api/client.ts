@@ -1,4 +1,4 @@
-import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosError, AxiosHeaders, type InternalAxiosRequestConfig } from 'axios';
 import type { components } from '@/lib/api/schema';
 import { ApiProblem } from '@/lib/api/problem';
 
@@ -28,6 +28,13 @@ export function onUnauthenticated(handler: () => void): () => void {
     };
 }
 
+function parseRetryAfter(value: unknown): number | undefined {
+    const text = String(value ?? '').trim();
+    const seconds = Number(text);
+
+    return text !== '' && Number.isFinite(seconds) ? seconds : undefined;
+}
+
 function toApiProblem(error: AxiosError): ApiProblem | null {
     const response = error.response;
     const contentType = String(response?.headers?.['content-type'] ?? '');
@@ -36,15 +43,35 @@ function toApiProblem(error: AxiosError): ApiProblem | null {
         return null;
     }
 
-    const retryAfter = Number(response.headers['retry-after']);
+    const retryAfter = parseRetryAfter(response.headers['retry-after']);
 
-    return new ApiProblem(
-        response.data as components['schemas']['Problem'],
-        Number.isFinite(retryAfter) && response.headers['retry-after'] !== undefined ? retryAfter : undefined,
-    );
+    if (typeof response.data !== 'object' || response.data === null) {
+        return new ApiProblem(
+            {
+                type: '/problems/server_error',
+                title: 'Unexpected response',
+                status: response.status,
+                detail: 'The server sent an unreadable error response.',
+                code: 'server_error',
+            },
+            retryAfter,
+        );
+    }
+
+    return new ApiProblem(response.data as components['schemas']['Problem'], retryAfter);
 }
 
-api.interceptors.response.use(undefined, (error: unknown) => {
+/**
+ * Laravel only issues a fresh XSRF-TOKEN cookie on requests that pass the CSRF check, so a 419 leaves the stale
+ * cookie in place. Any web GET passes, which makes it a cheap way to get a new token.
+ */
+async function refreshCsrfCookie(): Promise<void> {
+    const config: Partial<RetryableConfig> = { headers: new AxiosHeaders({ Accept: 'text/html' }), _retried419: true };
+
+    await api.get('/', config);
+}
+
+api.interceptors.response.use(undefined, async (error: unknown) => {
     if (!(error instanceof AxiosError)) {
         return Promise.reject(error);
     }
@@ -53,6 +80,12 @@ api.interceptors.response.use(undefined, (error: unknown) => {
 
     if (error.response?.status === 419 && config && !config._retried419) {
         config._retried419 = true;
+
+        try {
+            await refreshCsrfCookie();
+        } catch {
+            return Promise.reject(toApiProblem(error) ?? error);
+        }
 
         return api.request(config);
     }
