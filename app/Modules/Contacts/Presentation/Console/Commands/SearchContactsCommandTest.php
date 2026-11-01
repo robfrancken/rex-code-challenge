@@ -30,8 +30,50 @@ it('prints the next cursor when there are more results', function (): void {
     ContactFactory::new()->count(30)->create();
 
     $this->artisan('contacts:search')
-        ->expectsOutputToContain('Next page: --cursor=')
+        ->expectsOutputToContain('Next page: php artisan contacts:search --per-page=25 --cursor=')
         ->assertExitCode(0);
+});
+
+it('reprints the search with the next cursor', function (): void {
+    foreach (range(1, 25) as $index) {
+        $contact = ContactFactory::new()->create(['name' => "Jo {$index}"]);
+        ContactEmailFactory::new()->for($contact)->create([
+            'email' => "jo{$index}@rex.com.au",
+            'domain' => 'rex.com.au',
+        ]);
+    }
+
+    Artisan::call('contacts:search', [
+        'q' => 'j',
+        '--name' => 'j',
+        '--domain' => 'rex.com.au',
+        '--per-page' => '20',
+    ]);
+
+    expect(Artisan::output())->toMatch('/^Next page: php artisan contacts:search j --name=j --domain=rex\.com\.au --per-page=20 --cursor=[A-Za-z0-9_-]+$/m');
+});
+
+it('quotes reprinted values the shell would split', function (): void {
+    ContactFactory::new()->count(3)->sequence(
+        ['name' => "O'Hara Ann"],
+        ['name' => "O'Hara Bo"],
+        ['name' => "O'Hara Cy"],
+    )->create();
+
+    Artisan::call('contacts:search', [
+        'q' => "o'",
+        '--per-page' => '2',
+    ]);
+
+    expect(Artisan::output())->toContain("Next page: php artisan contacts:search 'o'\\'''");
+});
+
+it('prints a search that runs out of time and fails', function (): void {
+    failTimeLimitedQueries();
+
+    $this->artisan('contacts:search')
+        ->expectsOutputToContain('The search matched too many contacts to sort in time.')
+        ->assertExitCode(1);
 });
 
 it('prints no next cursor on the last page', function (): void {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Modules\Contacts\Application\Validation\SearchContactsValidator;
 use Illuminate\Pagination\Cursor;
+use Illuminate\Support\Str;
 
 it('accepts valid filters', function (): void {
     $input = [
@@ -31,6 +32,24 @@ it('lowercases the domain after validating and leaves the phone raw', function (
         ->and($validated['email_domain'])->toBe('rex.com.au');
 });
 
+it('strips a leading @ from the domain', function (): void {
+    $validated = app(SearchContactsValidator::class)->validate(['email_domain' => ' @Rex.com.au ']);
+
+    expect($validated['email_domain'])->toBe('rex.com.au');
+});
+
+it('accepts the cursor of a contact whose name is long in JSON', function (int $characters): void {
+    $cursor = (new Cursor([
+        'name' => str_repeat('😀', $characters),
+        'id' => (string) Str::uuid(),
+    ]))->encode();
+
+    expect(app(SearchContactsValidator::class)->validate(['cursor' => $cursor]))->toBe(['cursor' => $cursor]);
+})->with([
+    '200 emoji' => 200,
+    'the longest name, 255 emoji' => 255,
+]);
+
 it('rejects invalid filters', function (
     array $input,
     string $key,
@@ -41,7 +60,7 @@ it('rejects invalid filters', function (
     'phone not numeric' => [['phone' => 'abc'], 'phone'],
     'q too long' => [['q' => str_repeat('a', 256)], 'q'],
     'cursor garbage' => [['cursor' => 'garbage'], 'cursor'],
-    'cursor too long' => [['cursor' => str_repeat('a', 2049)], 'cursor'],
+    'cursor too long' => [['cursor' => str_repeat('a', 4401)], 'cursor'],
 ]);
 
 it('ignores the removed page parameter', function (): void {

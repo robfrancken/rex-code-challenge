@@ -57,6 +57,7 @@ it('documents every problem code', function (): void {
         'idempotency_key_invalid',
         'idempotency_request_in_progress',
         'telephony_failed',
+        'search_too_broad',
         'too_many_requests',
         'http_error',
         'server_error',

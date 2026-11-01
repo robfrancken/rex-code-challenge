@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 use App\Modules\Contacts\Application\Actions\SearchContacts;
 use App\Modules\Contacts\Application\DTOs\SearchContactsData;
+use App\Modules\Contacts\Application\Exceptions\SearchTooBroad;
 use App\Modules\Contacts\Application\Validation\SearchContactsValidator;
 use Database\Factories\Contacts\ContactEmailFactory;
 use Database\Factories\Contacts\ContactFactory;
 use Database\Factories\Contacts\ContactPhoneFactory;
 use Database\Seeders\BulkContactSeeder;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 function searchData(
@@ -113,6 +115,30 @@ it('pages by cursor without duplicating or skipping contacts', function (): void
         ->and($second->nextCursor())->toBeNull()
         ->and($ids->unique()->count())->toBe(40)
         ->and($ids->count())->toBe(40);
+});
+
+it('limits the search query to the configured execution time', function (): void {
+    config(['contacts.search.max_execution_ms' => 1500]);
+    DB::enableQueryLog();
+
+    app(SearchContacts::class)->handle(searchData(emailDomain: 'rex.com.au'));
+
+    expect(DB::getQueryLog()[0]['query'])->toStartWith('select /*+ MAX_EXECUTION_TIME(1500) */ contacts.* from');
+});
+
+it('reports a search that runs out of time as too broad', function (): void {
+    failTimeLimitedQueries();
+
+    expect(fn () => app(SearchContacts::class)->handle(searchData()))->toThrow(
+        SearchTooBroad::class,
+        'The search matched too many contacts to sort in time. Add more characters or another filter.',
+    );
+});
+
+it('lets other query errors through', function (): void {
+    failTimeLimitedQueries(1064);
+
+    expect(fn () => app(SearchContacts::class)->handle(searchData()))->toThrow(QueryException::class);
 });
 
 it('loads emails and phones for the page', function (): void {

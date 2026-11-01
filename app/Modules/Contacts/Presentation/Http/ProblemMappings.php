@@ -6,6 +6,7 @@ namespace App\Modules\Contacts\Presentation\Http;
 
 use App\Http\Problems\ProblemRenderer;
 use App\Modules\Contacts\Application\Exceptions\ContactNotFound;
+use App\Modules\Contacts\Application\Exceptions\SearchTooBroad;
 use App\Modules\Contacts\Application\Exceptions\TelephonyFailed;
 
 /**
@@ -17,5 +18,6 @@ final class ProblemMappings
     {
         ProblemRenderer::map(ContactNotFound::class, 404, 'Contact not found');
         ProblemRenderer::map(TelephonyFailed::class, 502, 'Call could not be placed');
+        ProblemRenderer::map(SearchTooBroad::class, 422, 'Search too broad');
     }
 }

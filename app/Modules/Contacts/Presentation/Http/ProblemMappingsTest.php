@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\User;
 use App\Modules\Contacts\Application\Exceptions\ContactNotFound;
+use App\Modules\Contacts\Application\Exceptions\SearchTooBroad;
 use App\Modules\Contacts\Application\Exceptions\TelephonyFailed;
 use App\Modules\Contacts\Domain\Telephony\CallOutcome;
 use App\Modules\Contacts\Domain\ValueObjects\PhoneNumber;
@@ -46,6 +47,21 @@ it('renders a failed call as a 502 telephony_failed problem', function (): void 
         ]);
 });
 
+it('renders a search that runs out of time as a 422 search_too_broad problem', function (): void {
+    failTimeLimitedQueries();
+
+    $this->actingAs(User::factory()->create())
+        ->getJson(route('contacts.index'))
+        ->assertUnprocessable()
+        ->assertExactJson([
+            'type' => '/problems/search_too_broad',
+            'title' => 'Search too broad',
+            'status' => 422,
+            'detail' => 'The search matched too many contacts to sort in time. Add more characters or another filter.',
+            'code' => 'search_too_broad',
+        ]);
+});
+
 it('does not report the module\'s problems at error level', function (Throwable $exception): void {
     Route::middleware('web')->get('api/test/contacts-problem', fn () => throw $exception);
     Log::spy();
@@ -56,6 +72,7 @@ it('does not report the module\'s problems at error level', function (Throwable 
 })->with([
     'contact not found' => fn (): Throwable => ContactNotFound::withId('abc'),
     'telephony failed' => fn (): Throwable => TelephonyFailed::forPhone(PhoneNumber::fromString('+61412345678')),
+    'search too broad' => fn (): Throwable => SearchTooBroad::make(),
     'idempotency key missing' => fn (): Throwable => IdempotencyKeyMissing::make(),
     'idempotency key invalid' => fn (): Throwable => IdempotencyKeyInvalid::make(),
     'idempotency key reused' => fn (): Throwable => IdempotencyKeyReused::make(),

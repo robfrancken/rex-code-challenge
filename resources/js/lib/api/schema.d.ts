@@ -67,7 +67,7 @@ export interface paths {
         };
         /**
          * Search contacts
-         * @description `q` is one box matched against the contact name (substring, 2+ characters), phone digits and email domain prefix; a contact matches if any of these match. The explicit filters combine with AND, and with `q`. Results are ordered by name, then id, and paged by cursor: pass `meta.next_cursor` back as `cursor`. Changing the filters and reusing an old cursor is harmless: the cursor only marks a position in the name order.
+         * @description `q` is one box matched against the contact name (substring), phone digits (when `q` looks like a phone number) and email domain prefix; a contact matches if any of these match. The explicit filters combine with AND, and with `q`. Results are ordered by name, then id, and paged by cursor: pass `meta.next_cursor` back as `cursor`. Changing the filters and reusing an old cursor is harmless: the cursor only marks a position in the name order. A search is stopped after a server-configured time (2 seconds by default) and returns 422 `search_too_broad`; add characters or another filter.
          */
         get: operations["searchContacts"];
         put?: never;
@@ -179,7 +179,9 @@ export interface components {
         ContactPage: {
             data: components["schemas"]["Contact"][];
             links: {
+                /** @description Always null: cursor paging has no first-page link. */
                 first: string | null;
+                /** @description Always null: cursor paging has no last-page link. */
                 last: string | null;
                 prev: string | null;
                 next: string | null;
@@ -216,7 +218,7 @@ export interface components {
             status: number;
             detail: string;
             /** @enum {string} */
-            code: "validation_failed" | "invalid_credentials" | "contact_not_found" | "not_found" | "unauthenticated" | "csrf_token_mismatch" | "idempotency_key_missing" | "idempotency_key_reused" | "idempotency_key_invalid" | "idempotency_request_in_progress" | "telephony_failed" | "too_many_requests" | "http_error" | "server_error";
+            code: "validation_failed" | "invalid_credentials" | "contact_not_found" | "not_found" | "unauthenticated" | "csrf_token_mismatch" | "idempotency_key_missing" | "idempotency_key_reused" | "idempotency_key_invalid" | "idempotency_request_in_progress" | "telephony_failed" | "search_too_broad" | "too_many_requests" | "http_error" | "server_error";
             /** @description Present on `validation_failed`: field name to list of messages. */
             errors?: {
                 [key: string]: string[];
@@ -390,16 +392,16 @@ export interface operations {
     searchContacts: {
         parameters: {
             query?: {
-                /** @description Free-text search over name, phone digits and email domain prefix. Operator characters are treated as text. Ignored when nothing in it is searchable. */
+                /** @description Free-text search. A contact matches when its name contains the text, when one of its email domains starts with it, or, only when the text looks like a phone number (an optional `+`, then digits, spaces, dashes and brackets, with at least two digits), when one of its phone numbers contains those digits. A one-character `q` is a prefix match on the name and the email domain. Operator characters are treated as text. Ignored when nothing in it is searchable. */
                 q?: string;
-                /** @description Case-insensitive substring match on the contact name (two or more characters; a single character matches a name prefix). */
+                /** @description Case-insensitive substring match on the contact name, so `chloe s` finds `Chloe Smith` and `o'reilly` finds `O'Reilly`. A separator typed as a space or a hyphen matches either. When no word in the text has two or more characters (for example `a b`), it matches a name prefix instead. */
                 name?: string;
-                /** @description A full or partial phone number. Formatting (spaces, dashes, parentheses, leading +) is allowed and ignored: the value is reduced to digits, one leading trunk 0 is dropped (so the local `0412 345 678` finds `+61412345678`), and the result is matched as a substring of stored phone numbers. */
+                /** @description A full or partial phone number. Formatting (spaces, dashes, parentheses, leading +) is allowed and ignored: the value is reduced to digits, one leading trunk 0 is dropped (so the local `0412 345 678` finds `+61412345678`), and the result is matched as a substring of stored phone numbers. A value with fewer than two digits left is ignored, as if the filter were absent. */
                 phone?: string;
-                /** @description Exact, case-insensitive match on the part of an email after the last `@`. */
+                /** @description Exact, case-insensitive match on the part of an email after the last `@`. A leading `@` is ignored, so `@example.com` equals `example.com`. */
                 email_domain?: string;
                 per_page?: number;
-                /** @description Opaque cursor from `meta.next_cursor` or `meta.prev_cursor` of an earlier response. A malformed cursor is a 422 `validation_failed` on `cursor`. */
+                /** @description Opaque cursor from `meta.next_cursor` or `meta.prev_cursor` (or the `cursor` in `links.next` or `links.prev`) of an earlier response. A malformed cursor is a 422 `validation_failed` on `cursor`. There is no first or last page link: `links.first` and `links.last` are always null. */
                 cursor?: string;
             };
             header?: never;
@@ -418,7 +420,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthenticated"];
-            /** @description `validation_failed`, for example a malformed `cursor`. */
+            /** @description `validation_failed`, for example a malformed `cursor`, or `search_too_broad`: the search matched too many contacts to sort in time. */
             422: {
                 headers: {
                     [name: string]: unknown;

@@ -10,6 +10,8 @@ use App\Modules\Contacts\Domain\Telephony\TelephonyGateway;
 use App\Modules\Contacts\Domain\ValueObjects\PhoneNumber;
 use Database\Factories\Contacts\ContactFactory;
 use Database\Factories\Contacts\ContactPhoneFactory;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Pest\Expectation;
 use Tests\TestCase;
@@ -58,6 +60,27 @@ function bindGateway(CallOutcome $outcome): TelephonyGateway
     app()->instance(TelephonyGateway::class, $gateway);
 
     return $gateway;
+}
+
+/**
+ * Fails every query carrying a MAX_EXECUTION_TIME hint with MySQL error $code, before it runs.
+ * The default, 3024, is what MySQL raises when a statement runs past that limit.
+ */
+function failTimeLimitedQueries(int $code = 3024): void
+{
+    DB::beforeExecuting(function (
+        string $query,
+        array $bindings,
+    ) use ($code): void {
+        if (! str_contains($query, 'MAX_EXECUTION_TIME')) {
+            return;
+        }
+
+        $error = new PDOException('Query execution was interrupted, maximum statement execution time exceeded');
+        $error->errorInfo = ['HY000', $code, $error->getMessage()];
+
+        throw new QueryException('mysql', $query, $bindings, $error);
+    });
 }
 
 /**

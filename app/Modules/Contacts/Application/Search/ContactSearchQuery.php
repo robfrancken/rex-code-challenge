@@ -21,7 +21,8 @@ final class ContactSearchQuery
      * Each FULLTEXT match set (q, name, phone) is a distinct derived table joined on the contact id, so
      * the small match sets drive the query. As IN subqueries MySQL either scans contacts and probes the
      * matches per row, or plans a dependent subquery or a FirstMatch semijoin, which evaluates MATCH per
-     * row and drops rows. The exact email domain is a B-tree lookup and stays a semijoin.
+     * row and drops rows. The exact email domain is a B-tree lookup and stays a semijoin. A column list
+     * the caller already chose is kept; otherwise only the contact columns are selected.
      *
      * @param  Builder<Contact>  $contacts
      * @return Builder<Contact>
@@ -39,7 +40,7 @@ final class ContactSearchQuery
             'phone_matches' => $phone === null ? null : $this->phoneBranch($phone),
         ]);
 
-        if ($matchSets !== []) {
+        if ($matchSets !== [] && $contacts->getQuery()->columns === null) {
             $contacts->select('contacts.*');
         }
 
