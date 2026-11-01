@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Contacts\Application\Exceptions;
 
-use App\Exceptions\ProblemException;
+use App\Exceptions\ApplicationException;
 use App\Modules\Contacts\Domain\ValueObjects\PhoneNumber;
 
-final class TelephonyFailed extends ProblemException
+final class TelephonyFailed extends ApplicationException
 {
     public static function forPhone(PhoneNumber $phone): self
     {
@@ -17,15 +17,5 @@ final class TelephonyFailed extends ProblemException
     public function problemCode(): string
     {
         return 'telephony_failed';
-    }
-
-    public function status(): int
-    {
-        return 502;
-    }
-
-    public function title(): string
-    {
-        return 'Call could not be placed';
     }
 }

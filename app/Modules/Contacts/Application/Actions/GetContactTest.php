@@ -28,8 +28,7 @@ it('throws ContactNotFound for an unknown id', function (): void {
     try {
         app(GetContact::class)->handle((string) Str::uuid());
     } catch (ContactNotFound $exception) {
-        expect($exception->problemCode())->toBe('contact_not_found')
-            ->and($exception->status())->toBe(404);
+        expect($exception->problemCode())->toBe('contact_not_found');
 
         return;
     }

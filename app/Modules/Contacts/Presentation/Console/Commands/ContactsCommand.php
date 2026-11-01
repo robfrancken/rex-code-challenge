@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Contacts\Presentation\Console\Commands;
 
+use App\Exceptions\ApplicationException;
 use App\Exceptions\ProblemException;
 use Illuminate\Console\Command;
 use Illuminate\Validation\ValidationException;
@@ -11,7 +12,7 @@ use Illuminate\Validation\ValidationException;
 abstract class ContactsCommand extends Command
 {
     /**
-     * Runs the operation, turning validation and problem exceptions into printed errors and exit codes.
+     * Runs the operation, turning validation, application and problem exceptions into printed errors and exit codes.
      *
      * @param  callable(): int  $operation
      */
@@ -27,7 +28,7 @@ abstract class ContactsCommand extends Command
             }
 
             return self::INVALID;
-        } catch (ProblemException $e) {
+        } catch (ApplicationException|ProblemException $e) {
             $this->error($e->getMessage());
 
             return self::FAILURE;

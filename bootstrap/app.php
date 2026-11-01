@@ -1,5 +1,7 @@
 <?php
 
+use App\Exceptions\ApplicationException;
+use App\Exceptions\ProblemException;
 use App\Http\Problems\ProblemRenderer;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -16,6 +18,10 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->dontReport([
+            ProblemException::class,
+            ApplicationException::class,
+        ]);
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*', 'login', 'logout') || $request->expectsJson(),
         );

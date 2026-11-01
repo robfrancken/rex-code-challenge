@@ -2,13 +2,34 @@
 
 declare(strict_types=1);
 
+use App\Exceptions\ApplicationException;
 use App\Exceptions\ProblemException;
+use App\Http\Problems\ProblemRenderer;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 
 beforeEach(function (): void {
+    $mapped = new class('The widget is missing.') extends ApplicationException
+    {
+        public function problemCode(): string
+        {
+            return 'widget_missing';
+        }
+    };
+    ProblemRenderer::map($mapped::class, 404, 'Widget missing');
+    Route::middleware('web')->get('api/test/application', fn () => throw $mapped);
+    Route::middleware('web')->get('api/test/unmapped', function (): void {
+        throw new class('Gadget +61412345678 is broken.') extends ApplicationException
+        {
+            public function problemCode(): string
+            {
+                return 'gadget_broken';
+            }
+        };
+    });
     Route::middleware('web')->get('api/test/validation', function (): void {
         throw ValidationException::withMessages(['name' => 'The name is required.']);
     });
@@ -60,6 +81,46 @@ it('renders a ProblemException with its own code and status', function (): void 
         ->assertJsonPath('type', '/problems/teapot_test')
         ->assertJsonPath('title', 'Teapot')
         ->assertJsonPath('detail', 'I am a teapot.');
+});
+
+it('renders a mapped application exception with the registered status and title', function (): void {
+    $this->getJson('api/test/application')
+        ->assertNotFound()
+        ->assertExactJson([
+            'type' => '/problems/widget_missing',
+            'title' => 'Widget missing',
+            'status' => 404,
+            'detail' => 'The widget is missing.',
+            'code' => 'widget_missing',
+        ]);
+});
+
+it('renders an unmapped application exception as 500 server_error without its message', function (): void {
+    $response = $this->getJson('api/test/unmapped');
+
+    $response->assertInternalServerError()->assertJsonPath('code', 'server_error');
+    expect($response->getContent())
+        ->not->toContain('gadget')
+        ->not->toContain('+61412345678');
+});
+
+it('does not report problem or application exceptions', function (string $uri): void {
+    Log::spy();
+
+    $this->getJson($uri);
+
+    Log::shouldNotHaveReceived('error');
+})->with([
+    'problem exception' => 'api/test/problem',
+    'application exception' => 'api/test/application',
+]);
+
+it('still reports unexpected exceptions at error level', function (): void {
+    Log::spy();
+
+    $this->getJson('api/test/boom');
+
+    Log::shouldHaveReceived('error')->once();
 });
 
 it('renders unauthenticated as 401', function (): void {

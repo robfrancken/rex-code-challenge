@@ -14,6 +14,7 @@ use App\Modules\Contacts\Domain\Telephony\CallOutcome;
 use App\Modules\Contacts\Domain\Telephony\TelephonyGateway;
 use App\Modules\Contacts\Domain\ValueObjects\PhoneNumber;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -39,6 +40,8 @@ final readonly class CallContact
         $outcome = $this->gateway->place($number);
 
         if ($outcome === CallOutcome::Failed) {
+            Log::warning('contacts.call_failed', ['contact_id' => $contact->id]);
+
             throw TelephonyFailed::forPhone($number);
         }
 

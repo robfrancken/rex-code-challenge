@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
 
 it('logs in with correct credentials', function (): void {
     $user = User::factory()->create(['email' => 'demo@example.com']);
@@ -37,6 +38,18 @@ it('gives the same response for a wrong password and an unknown email', function
     expect($unknownEmail->getStatusCode())->toBe($wrongPassword->getStatusCode())
         ->and($unknownEmail->json())->toBe($wrongPassword->json());
     $this->assertGuest();
+});
+
+it('does not report a failed login at error level', function (): void {
+    User::factory()->create(['email' => 'demo@example.com']);
+    Log::spy();
+
+    $this->postJson(route('login'), [
+        'email' => 'demo@example.com',
+        'password' => 'nope',
+    ])->assertStatus(422);
+
+    Log::shouldNotHaveReceived('error');
 });
 
 it('validates the login payload', function (): void {

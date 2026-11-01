@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Problems;
 
+use App\Exceptions\ApplicationException;
 use App\Exceptions\ProblemException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -17,8 +18,33 @@ use Throwable;
 
 final class ProblemRenderer
 {
+    /**
+     * HTTP status and title for each transport-neutral application exception, registered by the modules' Presentation layers.
+     *
+     * @var array<class-string<ApplicationException>, array{status: int, title: string}>
+     */
+    private static array $applicationProblems = [];
+
+    /**
+     * Maps an application exception (and its subclasses) to an HTTP status and problem title.
+     *
+     * @param  class-string<ApplicationException>  $exceptionClass
+     */
+    public static function map(
+        string $exceptionClass,
+        int $status,
+        string $title,
+    ): void {
+        self::$applicationProblems[$exceptionClass] = [
+            'status' => $status,
+            'title' => $title,
+        ];
+    }
+
     public static function render(Throwable $e): JsonResponse
     {
+        $applicationProblem = $e instanceof ApplicationException ? self::applicationProblem($e) : null;
+
         return match (true) {
             $e instanceof ProblemException => ProblemDetails::response(
                 $e->status(),
@@ -27,6 +53,12 @@ final class ProblemRenderer
                 $e->getMessage(),
                 $e->extensions(),
                 $e->headers(),
+            ),
+            $e instanceof ApplicationException && $applicationProblem !== null => ProblemDetails::response(
+                $applicationProblem['status'],
+                $e->problemCode(),
+                $applicationProblem['title'],
+                $e->getMessage(),
             ),
             $e instanceof ValidationException => ProblemDetails::response(
                 422,
@@ -78,6 +110,22 @@ final class ProblemRenderer
                 'An unexpected error occurred.',
             ),
         };
+    }
+
+    /**
+     * An unmapped application exception returns null and so renders as a 500 that hides its message.
+     *
+     * @return array{status: int, title: string}|null
+     */
+    private static function applicationProblem(ApplicationException $e): ?array
+    {
+        foreach (self::$applicationProblems as $exceptionClass => $problem) {
+            if ($e instanceof $exceptionClass) {
+                return $problem;
+            }
+        }
+
+        return null;
     }
 
     /**

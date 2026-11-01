@@ -11,6 +11,7 @@ use App\Modules\Contacts\Presentation\Console\Commands\DeleteContactCommand;
 use App\Modules\Contacts\Presentation\Console\Commands\SearchContactsCommand;
 use App\Modules\Contacts\Presentation\Console\Commands\ShowContactCommand;
 use App\Modules\Contacts\Presentation\Console\Commands\UpsertContactCommand;
+use App\Modules\Contacts\Presentation\Http\ProblemMappings;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -28,6 +29,8 @@ final class ContactsServiceProvider extends ServiceProvider
     {
         RateLimiter::for('api', fn (Request $request): Limit => Limit::perMinute(60)
             ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
+
+        ProblemMappings::register();
 
         Route::middleware(['web', 'auth', 'throttle:api'])
             ->prefix('api/v1')

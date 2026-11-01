@@ -9,6 +9,7 @@ use App\Modules\Contacts\Application\Exceptions\TelephonyFailed;
 use App\Modules\Contacts\Domain\Telephony\CallOutcome;
 use App\Modules\Contacts\Domain\ValueObjects\PhoneNumber;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -30,15 +31,26 @@ it('throws TelephonyFailed when the provider fails', function (): void {
     try {
         app(CallContact::class)->handle(new CallContactData($id, null));
     } catch (TelephonyFailed $exception) {
-        expect($exception->status())->toBe(502)
-            ->and($exception->problemCode())->toBe('telephony_failed')
-            ->and($exception->title())->toBe('Call could not be placed')
+        expect($exception->problemCode())->toBe('telephony_failed')
             ->and($exception->getMessage())->toBe('The telephony provider failed to place the call to +61412345678.');
 
         return;
     }
 
     $this->fail('Expected TelephonyFailed.');
+});
+
+it('logs a warning with only the contact id when the provider fails', function (): void {
+    bindGateway(CallOutcome::Failed);
+    $id = contactWithPhones('+61412345678');
+    Log::spy();
+
+    expect(fn () => app(CallContact::class)->handle(new CallContactData($id, null)))->toThrow(TelephonyFailed::class);
+
+    Log::shouldHaveReceived('warning')
+        ->withArgs(fn (string $message, array $context): bool => $message === 'contacts.call_failed'
+            && $context === ['contact_id' => $id])
+        ->once();
 });
 
 it('dials the earliest phone when none is given', function (): void {

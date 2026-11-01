@@ -14,6 +14,10 @@ foreach (glob(__DIR__.'/../../app/Modules/*', GLOB_ONLYDIR) ?: [] as $modulePath
         ->expect("{$module}\\Application")
         ->not->toUse("{$module}\\Presentation");
 
+    arch("{$module} application is transport-neutral")
+        ->expect("{$module}\\Application")
+        ->not->toUse(['App\\Http', 'App\\Exceptions\\ProblemException']);
+
     arch("{$module} inner layers do not depend on infrastructure")
         ->expect(["{$module}\\Domain", "{$module}\\Application"])
         ->not->toUse("{$module}\\Infrastructure");
