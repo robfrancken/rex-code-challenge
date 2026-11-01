@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# PostToolUse hook for Edit|Write|MultiEdit: formats PHP files with Pint.
+# Exit 0: nothing to do, or clean/fixed. Exit 2: problems Claude must fix (stderr).
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/hook.sh
+source "$here/lib/hook.sh"
+
+hook_read_input
+
+file="$(hook_field .tool_input.file_path)"
+case "$file" in
+  *.php) ;;
+  *) exit 0 ;;
+esac
+[ -f "$file" ] || exit 0
+
+project="${CLAUDE_PROJECT_DIR:-$(hook_field .cwd)}"
+cd "$project"
+
+status=0
+output="$(vendor/bin/pint "$file" 2>&1)" || status=$?
+if [ "$status" -ne 0 ]; then
+  printf 'Pint failed for %s:\n%s\n' "$file" "$output" >&2
+  exit 2
+fi
+
+exit 0
