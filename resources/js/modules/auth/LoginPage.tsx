@@ -52,7 +52,7 @@ export function LoginPage() {
     });
 
     return (
-        <div className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_20%_20%,#eef2ff_0,transparent_40%),radial-gradient(circle_at_80%_80%,#f5f3ff_0,transparent_40%)] bg-background p-4">
+        <div className="bg-background grid min-h-screen place-items-center bg-[radial-gradient(circle_at_20%_20%,#eef2ff_0,transparent_40%),radial-gradient(circle_at_80%_80%,#f5f3ff_0,transparent_40%)] p-4">
             <Card className="w-full max-w-sm p-7">
                 <div className="flex items-center gap-2.5">
                     <div className="grid size-[30px] place-items-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 text-[13px] font-bold text-white">
@@ -61,20 +61,32 @@ export function LoginPage() {
                     <strong className="text-base">Rex CRM</strong>
                 </div>
                 <h1 className="mt-3.5 text-xl font-semibold">Welcome back</h1>
-                <p className="text-xs text-muted-foreground">Sign in to manage your contacts</p>
+                <p className="text-muted-foreground text-xs">Sign in to manage your contacts</p>
 
                 <form onSubmit={onSubmit} className="mt-2 space-y-3.5" noValidate>
                     <div className="space-y-1.5">
                         <Label htmlFor="email">Email</Label>
                         <div className="relative">
-                            <Mail className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-                            <Input id="email" type="email" autoComplete="username" className="pl-8" {...register('email')} />
+                            <Mail
+                                className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
+                                aria-hidden
+                            />
+                            <Input
+                                id="email"
+                                type="email"
+                                autoComplete="username"
+                                className="pl-8"
+                                {...register('email')}
+                            />
                         </div>
                     </div>
                     <div className="space-y-1.5">
                         <Label htmlFor="password">Password</Label>
                         <div className="relative">
-                            <Lock className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                            <Lock
+                                className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
+                                aria-hidden
+                            />
                             <Input
                                 id="password"
                                 type="password"
@@ -97,8 +109,8 @@ export function LoginPage() {
                 </form>
 
                 {!isProduction() && (
-                    <div className="mt-4 flex gap-2.5 rounded-[10px] bg-muted px-3 py-2.5 text-xs text-zinc-700">
-                        <Info className="mt-px size-4 shrink-0 text-muted-foreground" aria-hidden />
+                    <div className="bg-muted mt-4 flex gap-2.5 rounded-[10px] px-3 py-2.5 text-xs text-zinc-700">
+                        <Info className="text-muted-foreground mt-px size-4 shrink-0" aria-hidden />
                         <span>Demo account: demo@example.com / password</span>
                     </div>
                 )}

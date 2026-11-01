@@ -81,18 +81,31 @@ describe('LoginPage', () => {
 
         await submit();
 
-        expect(await screen.findByText('These credentials do not match our records.')).toBeInTheDocument();
+        expect(
+            await screen.findByText('These credentials do not match our records.'),
+        ).toBeInTheDocument();
     });
 
     it('shows a rate limit message with the retry seconds', async () => {
         vi.mocked(login).mockRejectedValue(
-            new ApiProblem({ type: 't', title: 'Slow down', status: 429, detail: 'Too many.', code: 'too_many_requests' }, 30),
+            new ApiProblem(
+                {
+                    type: 't',
+                    title: 'Slow down',
+                    status: 429,
+                    detail: 'Too many.',
+                    code: 'too_many_requests',
+                },
+                30,
+            ),
         );
         renderLogin();
 
         await submit();
 
-        expect(await screen.findByText(/Too many attempts, try again shortly/)).toHaveTextContent('30');
+        expect(await screen.findByText(/Too many attempts, try again shortly/)).toHaveTextContent(
+            '30',
+        );
     });
 
     it('hides the demo hint in production', () => {

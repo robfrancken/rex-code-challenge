@@ -11,7 +11,9 @@ describe('avatarTone', () => {
 
     it('always returns a known tone and uses more than one', () => {
         const seen = new Set(
-            Array.from({ length: 50 }, (_, i) => avatarTone(`c0ffee00-0000-4000-8000-${String(i).padStart(12, '0')}`)),
+            Array.from({ length: 50 }, (_, i) =>
+                avatarTone(`c0ffee00-0000-4000-8000-${String(i).padStart(12, '0')}`),
+            ),
         );
 
         expect([...seen].every((tone) => tones.includes(tone))).toBe(true);

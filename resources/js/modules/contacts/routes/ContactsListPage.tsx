@@ -132,7 +132,9 @@ function ContactRow({ contact, onSelectDomain, onDelete }: ContactRowProps) {
                             <Link to={`/contacts/${contact.id}`}>View</Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                            <Link to={{ pathname: `/contacts/${contact.id}/edit`, search }}>Edit</Link>
+                            <Link to={{ pathname: `/contacts/${contact.id}/edit`, search }}>
+                                Edit
+                            </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem variant="destructive" onSelect={() => onDelete(contact)}>
                             Delete
@@ -268,7 +270,12 @@ export function ContactsListPage() {
                         <AlertTitle>{problemMessage(error).title}</AlertTitle>
                         <AlertDescription>
                             {problemMessage(error).detail}
-                            <Button variant="outline" size="sm" className="mt-2" onClick={() => void refetch()}>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="mt-2"
+                                onClick={() => void refetch()}
+                            >
                                 Retry
                             </Button>
                         </AlertDescription>

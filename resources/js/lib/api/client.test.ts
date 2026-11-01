@@ -1,8 +1,18 @@
-import { AxiosError, type AxiosAdapter, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
+import {
+    AxiosError,
+    type AxiosAdapter,
+    type AxiosResponse,
+    type InternalAxiosRequestConfig,
+} from 'axios';
 import { api, onUnauthenticated } from '@/lib/api/client';
 import { isApiProblem } from '@/lib/api/problem';
 
-type Reply = { status: number; data?: unknown; problem?: boolean; headers?: Record<string, string> };
+type Reply = {
+    status: number;
+    data?: unknown;
+    problem?: boolean;
+    headers?: Record<string, string>;
+};
 
 const originalAdapter = api.defaults.adapter;
 
@@ -15,13 +25,18 @@ function respondWith(...replies: Reply[]): { calls: () => number } {
             status: reply.status,
             statusText: '',
             data: reply.data ?? {},
-            headers: { 'content-type': reply.problem ? 'application/problem+json' : 'application/json', ...reply.headers },
+            headers: {
+                'content-type': reply.problem ? 'application/problem+json' : 'application/json',
+                ...reply.headers,
+            },
             config,
         } as AxiosResponse;
 
         return reply.status < 400
             ? Promise.resolve(response)
-            : Promise.reject(new AxiosError('failed', String(reply.status), config, null, response));
+            : Promise.reject(
+                  new AxiosError('failed', String(reply.status), config, null, response),
+              );
     };
     api.defaults.adapter = adapter;
 
@@ -29,7 +44,13 @@ function respondWith(...replies: Reply[]): { calls: () => number } {
 }
 
 function problemBody(status: number, code: string) {
-    return { type: `/problems/${code}`, title: `Title ${code}`, status, detail: `Detail ${code}`, code };
+    return {
+        type: `/problems/${code}`,
+        title: `Title ${code}`,
+        status,
+        detail: `Detail ${code}`,
+        code,
+    };
 }
 
 afterEach(() => {
@@ -58,11 +79,20 @@ describe('api client', () => {
         const error = await api.get('/api/v1/contacts/x').catch((e: unknown) => e);
 
         expect(isApiProblem(error)).toBe(true);
-        expect(error).toMatchObject({ status: 404, code: 'contact_not_found', title: 'Title contact_not_found' });
+        expect(error).toMatchObject({
+            status: 404,
+            code: 'contact_not_found',
+            title: 'Title contact_not_found',
+        });
     });
 
     it('reads Retry-After into the problem', async () => {
-        respondWith({ status: 429, problem: true, data: problemBody(429, 'too_many_requests'), headers: { 'retry-after': '12' } });
+        respondWith({
+            status: 429,
+            problem: true,
+            data: problemBody(429, 'too_many_requests'),
+            headers: { 'retry-after': '12' },
+        });
 
         const error = await api.get('/x').catch((e: unknown) => e);
 
@@ -70,7 +100,11 @@ describe('api client', () => {
     });
 
     it('retries a 419 once and resolves when the retry succeeds', async () => {
-        const mock = respondWith({ status: 419, problem: true, data: problemBody(419, 'csrf_token_mismatch') }, { status: 200 }, { status: 200, data: { ok: true } });
+        const mock = respondWith(
+            { status: 419, problem: true, data: problemBody(419, 'csrf_token_mismatch') },
+            { status: 200 },
+            { status: 200, data: { ok: true } },
+        );
 
         const response = await api.post('/api/v1/contacts', { name: 'x' });
 
@@ -125,7 +159,15 @@ describe('api client', () => {
             }
             post += 1;
             return post === 1
-                ? Promise.reject(new AxiosError('x', '419', config, null, response(419, true, problemBody(419, 'csrf_token_mismatch'))))
+                ? Promise.reject(
+                      new AxiosError(
+                          'x',
+                          '419',
+                          config,
+                          null,
+                          response(419, true, problemBody(419, 'csrf_token_mismatch')),
+                      ),
+                  )
                 : Promise.resolve(response(200, false, {}));
         };
 
@@ -146,7 +188,9 @@ describe('api client', () => {
                         config,
                     } as AxiosResponse),
                 );
-            return config.method === 'get' ? fail(500, problemBody(500, 'server_error')) : fail(419, problemBody(419, 'csrf_token_mismatch'));
+            return config.method === 'get'
+                ? fail(500, problemBody(500, 'server_error'))
+                : fail(419, problemBody(419, 'csrf_token_mismatch'));
         };
 
         const error = await api.post('/api/v1/contacts', {}).catch((e: unknown) => e);
@@ -155,11 +199,25 @@ describe('api client', () => {
     });
 
     it('ignores an empty or non-numeric Retry-After', async () => {
-        respondWith({ status: 429, problem: true, data: problemBody(429, 'too_many_requests'), headers: { 'retry-after': '' } });
-        expect(await api.get('/x').catch((e: unknown) => e)).toMatchObject({ retryAfter: undefined });
+        respondWith({
+            status: 429,
+            problem: true,
+            data: problemBody(429, 'too_many_requests'),
+            headers: { 'retry-after': '' },
+        });
+        expect(await api.get('/x').catch((e: unknown) => e)).toMatchObject({
+            retryAfter: undefined,
+        });
 
-        respondWith({ status: 429, problem: true, data: problemBody(429, 'too_many_requests'), headers: { 'retry-after': 'soon' } });
-        expect(await api.get('/x').catch((e: unknown) => e)).toMatchObject({ retryAfter: undefined });
+        respondWith({
+            status: 429,
+            problem: true,
+            data: problemBody(429, 'too_many_requests'),
+            headers: { 'retry-after': 'soon' },
+        });
+        expect(await api.get('/x').catch((e: unknown) => e)).toMatchObject({
+            retryAfter: undefined,
+        });
     });
 
     it('rejects a malformed problem body with a generic ApiProblem', async () => {
@@ -168,7 +226,11 @@ describe('api client', () => {
         const error = await api.get('/x').catch((e: unknown) => e);
 
         expect(isApiProblem(error)).toBe(true);
-        expect(error).toMatchObject({ status: 502, code: 'server_error', title: 'Unexpected response' });
+        expect(error).toMatchObject({
+            status: 502,
+            code: 'server_error',
+            title: 'Unexpected response',
+        });
     });
 
     it('passes non-problem errors through untouched', async () => {

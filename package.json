@@ -7,7 +7,7 @@
         "dev": "vite",
         "build": "tsc --noEmit && vite build",
         "typecheck": "tsc --noEmit",
-        "lint": "eslint resources/js",
+        "lint": "eslint resources/js vite.config.ts --max-warnings 0",
         "format": "prettier --write resources/js",
         "test": "vitest run",
         "api:types": "openapi-typescript app/Modules/Contacts/Presentation/Http/openapi.json -o resources/js/lib/api/schema.d.ts"

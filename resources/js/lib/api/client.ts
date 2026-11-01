@@ -66,7 +66,10 @@ function toApiProblem(error: AxiosError): ApiProblem | null {
  * cookie in place. Any web GET passes, which makes it a cheap way to get a new token.
  */
 async function refreshCsrfCookie(): Promise<void> {
-    const config: Partial<RetryableConfig> = { headers: new AxiosHeaders({ Accept: 'text/html' }), _retried419: true };
+    const config: Partial<RetryableConfig> = {
+        headers: new AxiosHeaders({ Accept: 'text/html' }),
+        _retried419: true,
+    };
 
     await api.get('/', config);
 }

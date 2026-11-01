@@ -34,6 +34,5 @@ export function createAppRouter(queryClient: QueryClient) {
                 { path: '*', element: <NotFound />, errorElement },
             ],
         },
-        { path: '*', element: <NotFound />, errorElement },
     ]);
 }

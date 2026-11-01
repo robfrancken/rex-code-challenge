@@ -17,7 +17,9 @@ export async function searchContacts(params: SearchParams): Promise<ContactPage>
 }
 
 export async function getContact(id: string): Promise<Contact> {
-    const { data } = await api.get<components['schemas']['ContactResponse']>(`${CONTACTS_URL}/${id}`);
+    const { data } = await api.get<components['schemas']['ContactResponse']>(
+        `${CONTACTS_URL}/${id}`,
+    );
 
     return data.data;
 }
@@ -31,7 +33,10 @@ export async function createContact(input: ContactInput, idempotencyKey: string)
 }
 
 export async function updateContact(id: string, input: ContactInput): Promise<Contact> {
-    const { data } = await api.put<components['schemas']['ContactResponse']>(`${CONTACTS_URL}/${id}`, input);
+    const { data } = await api.put<components['schemas']['ContactResponse']>(
+        `${CONTACTS_URL}/${id}`,
+        input,
+    );
 
     return data.data;
 }
@@ -40,7 +45,11 @@ export async function deleteContact(id: string): Promise<void> {
     await api.delete(`${CONTACTS_URL}/${id}`);
 }
 
-export async function callContact(id: string, phone: string, idempotencyKey: string): Promise<CallResult> {
+export async function callContact(
+    id: string,
+    phone: string,
+    idempotencyKey: string,
+): Promise<CallResult> {
     const { data } = await api.post<components['schemas']['CallResponse']>(
         `${CONTACTS_URL}/${id}/calls`,
         { phone },

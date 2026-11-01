@@ -20,9 +20,7 @@ export default defineConfig({
         tailwindcss(),
     ],
     resolve: {
-        alias: {
-            '@': decodeURIComponent(new URL('./resources/js', import.meta.url).pathname),
-        },
+        tsconfigPaths: true,
     },
     server: {
         watch: {

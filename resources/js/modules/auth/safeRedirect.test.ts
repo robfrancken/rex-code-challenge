@@ -6,10 +6,14 @@ describe('safeRedirect', () => {
         expect(safeRedirect('/contacts?page=2')).toBe('/contacts?page=2');
     });
 
-    it.each([['//evil.example'], ['https://evil.example'], [null], ['javascript:alert(1)'], [''], ['/\\evil.example']])(
-        'falls back to /contacts for %s',
-        (value) => {
-            expect(safeRedirect(value)).toBe('/contacts');
-        },
-    );
+    it.each([
+        ['//evil.example'],
+        ['https://evil.example'],
+        [null],
+        ['javascript:alert(1)'],
+        [''],
+        ['/\\evil.example'],
+    ])('falls back to /contacts for %s', (value) => {
+        expect(safeRedirect(value)).toBe('/contacts');
+    });
 });

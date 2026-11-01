@@ -6,7 +6,9 @@ import { isApiProblem } from '@/lib/api/problem';
 export function RouteError() {
     const error = useRouteError();
     const title = isApiProblem(error) ? error.title : 'Something went wrong';
-    const detail = isApiProblem(error) ? error.detail : 'An unexpected error occurred. Please try again.';
+    const detail = isApiProblem(error)
+        ? error.detail
+        : 'An unexpected error occurred. Please try again.';
 
     return (
         <div className="mx-auto max-w-md p-6">
