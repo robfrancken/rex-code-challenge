@@ -59,11 +59,11 @@ it('inserts in batches rather than per row', function (): void {
 });
 
 it('defaults the count from config', function (): void {
-    config(['contacts.seed.bulk_contacts' => 30]);
+    config(['contacts.seed.bulk_contacts' => 10]);
 
     new BulkContactSeeder()->run();
 
-    expect(Contact::count())->toBe(30);
+    expect(Contact::count())->toBe(10);
 });
 
 it('refuses to run in production', function (): void {
