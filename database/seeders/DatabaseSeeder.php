@@ -11,7 +11,7 @@ class DatabaseSeeder extends Seeder
     use WithoutModelEvents;
 
     /**
-     * Seed the application's database.
+     * Seed the application's database. The bulk fake contacts are left out in production.
      */
     public function run(): void
     {
@@ -21,6 +21,9 @@ class DatabaseSeeder extends Seeder
         ]));
 
         $this->call(ContactSeeder::class);
-        $this->call(BulkContactSeeder::class);
+
+        if (! app()->isProduction()) {
+            $this->call(BulkContactSeeder::class);
+        }
     }
 }

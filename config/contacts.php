@@ -13,5 +13,11 @@ return [
 
     'seed' => [
         'bulk_contacts' => (int) env('SEED_BULK_CONTACTS', 9960),
+
+        /*
+         * BulkContactSeeder fills the database with fake contacts, so it refuses to run in production
+         * unless this is set. DatabaseSeeder never runs it in production.
+         */
+        'bulk_in_production' => (bool) env('SEED_BULK_CONTACTS_IN_PRODUCTION', false),
     ],
 ];

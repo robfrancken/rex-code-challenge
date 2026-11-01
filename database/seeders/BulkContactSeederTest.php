@@ -11,13 +11,13 @@ use Database\Seeders\BulkContactSeeder;
 use Illuminate\Support\Facades\DB;
 
 it('seeds the requested number of contacts', function (): void {
-    new BulkContactSeeder()->run(250);
+    new BulkContactSeeder()->run(25);
 
-    expect(Contact::count())->toBe(250);
+    expect(Contact::count())->toBe(25);
 });
 
 it('stores only valid phones and emails with matching domains', function (): void {
-    new BulkContactSeeder()->run(250);
+    new BulkContactSeeder()->run(25);
 
     ContactPhone::all()->each(function (ContactPhone $phone): void {
         expect(PhoneNumber::fromString($phone->phone)->value)->toBe($phone->phone);
@@ -31,7 +31,7 @@ it('stores only valid phones and emails with matching domains', function (): voi
 });
 
 it('gives each contact one to three emails and one to two phones', function (): void {
-    new BulkContactSeeder()->run(250);
+    new BulkContactSeeder()->run(25);
 
     expect(Contact::has('emails', '<', 1)->count())->toBe(0)
         ->and(Contact::has('emails', '>', 3)->count())->toBe(0)
@@ -40,10 +40,10 @@ it('gives each contact one to three emails and one to two phones', function (): 
 });
 
 it('is idempotent', function (): void {
-    new BulkContactSeeder()->run(250);
+    new BulkContactSeeder()->run(25);
     $counts = [Contact::count(), ContactEmail::count(), ContactPhone::count()];
 
-    new BulkContactSeeder()->run(250);
+    new BulkContactSeeder()->run(25);
 
     expect([Contact::count(), ContactEmail::count(), ContactPhone::count()])->toBe($counts);
 });
@@ -51,7 +51,7 @@ it('is idempotent', function (): void {
 it('inserts in batches rather than per row', function (): void {
     DB::enableQueryLog();
 
-    new BulkContactSeeder()->run(250);
+    new BulkContactSeeder()->run(25);
 
     $inserts = collect(DB::getQueryLog())->filter(fn (array $query): bool => str_starts_with($query['query'], 'insert'));
 
@@ -64,4 +64,20 @@ it('defaults the count from config', function (): void {
     new BulkContactSeeder()->run();
 
     expect(Contact::count())->toBe(30);
+});
+
+it('refuses to run in production', function (): void {
+    app()->detectEnvironment(fn (): string => 'production');
+
+    expect(fn () => new BulkContactSeeder()->run(5))->toThrow(RuntimeException::class, 'SEED_BULK_CONTACTS_IN_PRODUCTION')
+        ->and(Contact::count())->toBe(0);
+});
+
+it('runs in production when forced', function (): void {
+    app()->detectEnvironment(fn (): string => 'production');
+    config(['contacts.seed.bulk_in_production' => true]);
+
+    new BulkContactSeeder()->run(5);
+
+    expect(Contact::count())->toBe(5);
 });

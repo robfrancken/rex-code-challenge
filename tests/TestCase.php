@@ -27,6 +27,7 @@ abstract class TestCase extends BaseTestCase
     public function beginDatabaseTransaction()
     {
         if (! in_array('fulltext', $this->groups(), true)) {
+            $this->failFullTextQueries();
             $this->beginRolledBackTransaction();
 
             return;
@@ -37,6 +38,22 @@ abstract class TestCase extends BaseTestCase
         $this->beforeApplicationDestroyed(function (): void {
             $this->truncateFulltextTables();
             DB::disconnect();
+        });
+    }
+
+    /**
+     * Inside the rolled-back transaction MATCH never sees the test's own rows, so a FULLTEXT
+     * search there returns nothing and an assertion on an empty result passes for the wrong
+     * reason. Such a query fails the test before it runs.
+     */
+    private function failFullTextQueries(): void
+    {
+        DB::beforeExecuting(function (string $query): void {
+            if (stripos($query, 'match (') !== false) {
+                $this->fail("A FULLTEXT query (MATCH) ran in a test outside the fulltext group: add ->group('fulltext') to the test."
+                    .' InnoDB only indexes FULLTEXT rows on commit, so inside the test transaction MATCH finds nothing.'
+                    ."\nQuery: {$query}");
+            }
         });
     }
 

@@ -7,6 +7,7 @@ use App\Modules\Contacts\Domain\Models\Contact;
 use Database\Factories\Contacts\ContactEmailFactory;
 use Database\Factories\Contacts\ContactFactory;
 use Database\Factories\Contacts\ContactPhoneFactory;
+use PHPUnit\Framework\AssertionFailedError;
 
 /**
  * @return list<string>
@@ -179,3 +180,7 @@ it('leaves the query unfiltered when q has nothing searchable', function (string
 
     expect(searchedNames(q: $q))->toBe(['Bob Brown', 'Jane Smith']);
 })->with(['-', '  ', '+', '@'])->group('fulltext');
+
+it('fails a test that searches FULLTEXT outside the fulltext group', function (): void {
+    expect(fn () => searchedNames(name: 'jane'))->toThrow(AssertionFailedError::class, "->group('fulltext')");
+});

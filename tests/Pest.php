@@ -10,6 +10,7 @@ use App\Modules\Contacts\Domain\Telephony\TelephonyGateway;
 use App\Modules\Contacts\Domain\ValueObjects\PhoneNumber;
 use Database\Factories\Contacts\ContactFactory;
 use Database\Factories\Contacts\ContactPhoneFactory;
+use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -81,6 +82,25 @@ function failTimeLimitedQueries(int $code = 3024): void
 
         throw new QueryException('mysql', $query, $bindings, $error);
     });
+}
+
+/**
+ * Rebuilds the name FULLTEXT index the way a table rebuild on a server with stopwords on would.
+ * Only for tests in the fulltext group: the base TestCase truncates the table afterwards, which
+ * rebuilds the index with stopwords off again.
+ */
+function rebuildNameIndexWithStopwords(): void
+{
+    DB::statement('set session innodb_ft_enable_stopword = on');
+    DB::statement('alter table contacts force');
+}
+
+/**
+ * The migration that adds the FULLTEXT search indexes.
+ */
+function searchIndexesMigration(): Migration
+{
+    return require database_path('migrations/2026_11_01_000010_add_search_indexes.php');
 }
 
 /**

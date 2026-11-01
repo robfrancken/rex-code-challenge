@@ -9,6 +9,7 @@ use App\Modules\Contacts\Domain\ValueObjects\PhoneNumber;
 use Faker\Generator;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 final class BulkContactSeeder extends Seeder
 {
@@ -60,9 +61,15 @@ final class BulkContactSeeder extends Seeder
 
     /**
      * Inserts the contacts in chunks of plain arrays, one batched insert per table per chunk.
+     *
+     * @throws RuntimeException in production, unless contacts.seed.bulk_in_production is set
      */
     public function run(?int $count = null): void
     {
+        if (app()->isProduction() && ! config()->boolean('contacts.seed.bulk_in_production')) {
+            throw new RuntimeException('BulkContactSeeder adds thousands of fake contacts and does not run in production. Set SEED_BULK_CONTACTS_IN_PRODUCTION=true to force it.');
+        }
+
         $count ??= (int) config('contacts.seed.bulk_contacts');
 
         $faker = fake('en_AU');

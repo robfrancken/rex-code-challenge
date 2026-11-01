@@ -7,6 +7,7 @@ namespace App\Modules\Contacts;
 use App\Modules\Contacts\Domain\Telephony\TelephonyGateway;
 use App\Modules\Contacts\Infrastructure\FakeTelephonyGateway;
 use App\Modules\Contacts\Presentation\Console\Commands\CallContactCommand;
+use App\Modules\Contacts\Presentation\Console\Commands\CheckSearchIndexesCommand;
 use App\Modules\Contacts\Presentation\Console\Commands\DeleteContactCommand;
 use App\Modules\Contacts\Presentation\Console\Commands\SearchContactsCommand;
 use App\Modules\Contacts\Presentation\Console\Commands\ShowContactCommand;
@@ -37,6 +38,7 @@ final class ContactsServiceProvider extends ServiceProvider
                 SearchContactsCommand::class,
                 DeleteContactCommand::class,
                 CallContactCommand::class,
+                CheckSearchIndexesCommand::class,
             ]);
         }
     }

@@ -6,6 +6,7 @@ use App\Modules\Contacts\Application\Search\ContactSearchQuery;
 use App\Modules\Contacts\Domain\Models\Contact;
 use Database\Seeders\BulkContactSeeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * @return array{key: ?string, type: string}
@@ -93,4 +94,28 @@ it('joins the explicit fulltext filters as derived tables, never a semijoin', fu
     expect($plan->where('select_type', 'DERIVED'))->toHaveCount(2)
         ->and($plan->pluck('select_type')->all())->not->toContain('DEPENDENT SUBQUERY')
         ->and($plan->pluck('Extra')->implode(' '))->not->toContain('FirstMatch');
+})->group('fulltext');
+
+it('runs the index migration again after a partial run', function (): void {
+    DB::statement('alter table contact_phones drop index contact_phones_phone_fulltext');
+
+    searchIndexesMigration()->up();
+    searchIndexesMigration()->up();
+
+    expect(Schema::hasIndex('contacts', 'contacts_name_fulltext', 'fulltext'))->toBeTrue()
+        ->and(Schema::hasIndex('contact_phones', 'contact_phones_phone_fulltext', 'fulltext'))->toBeTrue();
+})->group('fulltext');
+
+it('rolls the index migration back again after a partial rollback', function (): void {
+    try {
+        DB::statement('alter table contacts drop index contacts_name_fulltext');
+
+        searchIndexesMigration()->down();
+        searchIndexesMigration()->down();
+
+        expect(Schema::hasIndex('contacts', 'contacts_name_fulltext'))->toBeFalse()
+            ->and(Schema::hasIndex('contact_phones', 'contact_phones_phone_fulltext'))->toBeFalse();
+    } finally {
+        searchIndexesMigration()->up();
+    }
 })->group('fulltext');
