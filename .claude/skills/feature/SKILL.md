@@ -55,6 +55,7 @@ Run the review skills that match the changed files, passing the paths of every c
   - `review-dry`
   - `review-solid`
   - `review-owasp-backend`
+  - `review-db-performance`, when the change queries or writes the database or touches migrations
 - Frontend (`resources/js/`):
   - `review-dry`
   - `review-solid`
