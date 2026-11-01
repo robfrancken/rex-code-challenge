@@ -65,7 +65,7 @@ it('returns 404 contact_not_found for a non-uuid id', function (): void {
     $this->deleteJson('/api/v1/contacts/abc')->assertNotFound()->assertJsonPath('code', 'contact_not_found');
 });
 
-it('filters and paginates the index', function (): void {
+it('filters and pages the index by cursor', function (): void {
     foreach (['a@rex.com.au', 'b@rex.com.au', 'c@other.com'] as $email) {
         $contact = ContactFactory::new()->create();
         ContactEmailFactory::new()->for($contact)->create([
@@ -74,15 +74,68 @@ it('filters and paginates the index', function (): void {
         ]);
     }
 
-    $this->getJson(route('contacts.index', [
+    $first = $this->getJson(route('contacts.index', [
         'email_domain' => 'rex.com.au',
         'per_page' => 1,
     ]))
         ->assertOk()
         ->assertJsonCount(1, 'data')
-        ->assertJsonPath('meta.total', 2)
-        ->assertJsonStructure(['links', 'meta']);
+        ->assertJsonStructure([
+            'data',
+            'links' => ['first', 'last', 'prev', 'next'],
+            'meta' => ['path', 'per_page', 'next_cursor', 'prev_cursor'],
+        ])
+        ->assertJsonMissingPath('meta.total');
+
+    $this->getJson(route('contacts.index', [
+        'email_domain' => 'rex.com.au',
+        'per_page' => 1,
+        'cursor' => $first->json('meta.next_cursor'),
+    ]))
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('meta.next_cursor', null);
+})->group('fulltext');
+
+it('searches the index with q', function (): void {
+    ContactFactory::new()->create(['name' => 'Rex Carter']);
+    ContactFactory::new()->create(['name' => 'Bob Brown']);
+
+    $this->getJson(route('contacts.index', ['q' => 'rex']))
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.name', 'Rex Carter')
+        ->assertJsonPath('meta.next_cursor', null)
+        ->assertJsonMissingPath('meta.total');
+})->group('fulltext');
+
+it('rejects a malformed cursor with 422 validation_failed', function (): void {
+    $this->getJson(route('contacts.index', ['cursor' => 'garbage']))
+        ->assertUnprocessable()
+        ->assertJsonPath('code', 'validation_failed')
+        ->assertJsonValidationErrors('cursor', 'errors');
 });
+
+it('returns a valid page for a cursor reused with a different q', function (): void {
+    foreach (range(1, 3) as $i) {
+        ContactFactory::new()->create(['name' => "Smith {$i}"]);
+        ContactFactory::new()->create(['name' => "Rex {$i}"]);
+    }
+    $cursor = $this->getJson(route('contacts.index', [
+        'q' => 'smi',
+        'per_page' => 1,
+    ]))->json('meta.next_cursor');
+
+    $this->getJson(route('contacts.index', [
+        'q' => 'rex',
+        'cursor' => $cursor,
+    ]))
+        ->assertOk()
+        ->assertJsonStructure([
+            'data',
+            'meta' => ['next_cursor'],
+        ]);
+})->group('fulltext');
 
 it('deletes a contact then reports it missing', function (): void {
     $contact = ContactFactory::new()->create();

@@ -4,19 +4,21 @@ declare(strict_types=1);
 
 use App\Modules\Contacts\Application\Assemblers\SearchContactsDataFromCli;
 
-it('maps CLI option names onto the DTO', function (): void {
+it('maps CLI argument and option names onto the DTO', function (): void {
     $data = app(SearchContactsDataFromCli::class)->assemble([
+        'q' => 'jane',
         'name' => 'jane',
-        'phone' => '+61 412',
+        'phone' => '0412 345',
         'domain' => 'REX.com.au',
-        'page' => '2',
+        'cursor' => null,
         'per-page' => '10',
     ]);
 
-    expect($data->name)->toBe('jane')
-        ->and($data->phoneDigits)->toBe('61412')
+    expect($data->q)->toBe('jane')
+        ->and($data->name)->toBe('jane')
+        ->and($data->phone)->toBe('0412 345')
         ->and($data->emailDomain)->toBe('rex.com.au')
-        ->and($data->page)->toBe(2)
+        ->and($data->cursor)->toBeNull()
         ->and($data->perPage)->toBe(10);
 });
 
@@ -27,10 +29,14 @@ it('uses defaults when options are absent', function (): void {
     ]);
 
     expect($data->name)->toBeNull()
-        ->and($data->page)->toBe(1)
+        ->and($data->q)->toBeNull()
         ->and($data->perPage)->toBe(25);
 });
 
 it('rejects a phone filter that has no digits', function (): void {
     expect(fn () => app(SearchContactsDataFromCli::class)->assemble(['phone' => 'abc']))->toFailValidationOn('phone');
+});
+
+it('rejects a malformed cursor', function (): void {
+    expect(fn () => app(SearchContactsDataFromCli::class)->assemble(['cursor' => 'garbage']))->toFailValidationOn('cursor');
 });

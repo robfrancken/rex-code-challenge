@@ -13,7 +13,7 @@ final readonly class SearchContactsDataFromCli
     public function __construct(private SearchContactsValidator $validator) {}
 
     /**
-     * @param  array<string, mixed>  $options  keys: name, phone, domain, page, per-page
+     * @param  array<string, mixed>  $options  keys: q, name, phone, domain, per-page, cursor
      *
      * @throws ValidationException
      */
@@ -21,11 +21,12 @@ final readonly class SearchContactsDataFromCli
     {
         return SearchContactsData::fromValidated($this->validator->validate(
             [
+                'q' => $options['q'] ?? null,
                 'name' => $options['name'] ?? null,
                 'phone' => $options['phone'] ?? null,
                 'email_domain' => $options['domain'] ?? null,
-                'page' => $options['page'] ?? null,
                 'per_page' => $options['per-page'] ?? null,
+                'cursor' => $options['cursor'] ?? null,
             ],
         ));
     }

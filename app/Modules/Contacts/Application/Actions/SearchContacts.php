@@ -5,46 +5,26 @@ declare(strict_types=1);
 namespace App\Modules\Contacts\Application\Actions;
 
 use App\Modules\Contacts\Application\DTOs\SearchContactsData;
+use App\Modules\Contacts\Application\Search\ContactSearchQuery;
 use App\Modules\Contacts\Domain\Models\Contact;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Contracts\Pagination\CursorPaginator;
+use Illuminate\Pagination\Cursor;
 
-final class SearchContacts
+final readonly class SearchContacts
 {
-    /**
-     * Not a backslash: MySQL string literals treat it as an escape, so it is not portable.
-     */
-    private const string LIKE_ESCAPE = '!';
+    public function __construct(private ContactSearchQuery $search) {}
 
     /**
-     * @return LengthAwarePaginator<int, Contact>
+     * @return CursorPaginator<int, Contact>
      */
-    public function handle(SearchContactsData $data): LengthAwarePaginator
+    public function handle(SearchContactsData $data): CursorPaginator
     {
-        return Contact::query()
-            ->when($data->name !== null, fn (Builder $query) => $query->whereRaw(
-                'lower(name) like ? escape ?',
-                ['%'.$this->escapeLike(mb_strtolower((string) $data->name)).'%', self::LIKE_ESCAPE],
-            ))
-            ->when($data->phoneDigits !== null, fn (Builder $query) => $query->whereHas(
-                'phones',
-                fn (Builder $phones) => $phones->whereRaw(
-                    'phone like ? escape ?',
-                    ['%'.$this->escapeLike((string) $data->phoneDigits).'%', self::LIKE_ESCAPE],
-                ),
-            ))
-            ->when($data->emailDomain !== null, fn (Builder $query) => $query->whereHas(
-                'emails',
-                fn (Builder $emails) => $emails->where('domain', $data->emailDomain),
-            ))
-            ->with(['emails', 'phones'])
+        $contacts = Contact::query()->with(['emails', 'phones']);
+
+        return $this->search
+            ->apply($contacts, $data->q, $data->name, $data->phone, $data->emailDomain)
             ->orderBy('name')
             ->orderBy('id')
-            ->paginate($data->perPage, page: $data->page);
-    }
-
-    private function escapeLike(string $value): string
-    {
-        return preg_replace('/[!%_]/', self::LIKE_ESCAPE.'$0', $value) ?? $value;
+            ->cursorPaginate($data->perPage, ['*'], 'cursor', Cursor::fromEncoded($data->cursor));
     }
 }

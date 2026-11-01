@@ -3,51 +3,33 @@
 declare(strict_types=1);
 
 use App\Modules\Contacts\Application\Validation\SearchContactsValidator;
+use Illuminate\Pagination\Cursor;
 
 it('accepts valid filters', function (): void {
     $input = [
+        'q' => 'jane',
         'name' => 'jane',
         'phone' => '+6141',
         'email_domain' => 'rex.com.au',
-        'page' => 2,
         'per_page' => 100,
+        'cursor' => (new Cursor([
+            'name' => 'Jane',
+            'id' => 'abc',
+        ]))->encode(),
     ];
 
-    expect(app(SearchContactsValidator::class)->validate($input))->toBe([
-        ...$input,
-        'phone' => '6141',
-    ]);
+    expect(app(SearchContactsValidator::class)->validate($input))->toBe($input);
 });
 
-it('normalises phone to digits and lowercases the domain after validating', function (): void {
+it('lowercases the domain after validating and leaves the phone raw', function (): void {
     $validated = app(SearchContactsValidator::class)->validate([
         'phone' => '+61 (4) 1234-5678',
         'email_domain' => 'REX.com.au',
     ]);
 
-    expect($validated['phone'])->toBe('61412345678')
+    expect($validated['phone'])->toBe('+61 (4) 1234-5678')
         ->and($validated['email_domain'])->toBe('rex.com.au');
 });
-
-it('drops one leading trunk zero from the phone', function (
-    string $phone,
-    string $expected,
-): void {
-    expect(app(SearchContactsValidator::class)->validate(['phone' => $phone])['phone'])->toBe($expected);
-})->with([
-    'local mobile' => [
-        '(04) 1234-5678',
-        '412345678',
-    ],
-    'only one zero' => [
-        '00412',
-        '0412',
-    ],
-    'a lone zero is kept' => [
-        '0',
-        '0',
-    ],
-]);
 
 it('rejects invalid filters', function (
     array $input,
@@ -56,6 +38,12 @@ it('rejects invalid filters', function (
     expect(fn () => app(SearchContactsValidator::class)->validate($input))->toFailValidationOn($key);
 })->with([
     'per_page too large' => [['per_page' => 101], 'per_page'],
-    'page zero' => [['page' => 0], 'page'],
     'phone not numeric' => [['phone' => 'abc'], 'phone'],
+    'q too long' => [['q' => str_repeat('a', 256)], 'q'],
+    'cursor garbage' => [['cursor' => 'garbage'], 'cursor'],
+    'cursor too long' => [['cursor' => str_repeat('a', 513)], 'cursor'],
 ]);
+
+it('ignores the removed page parameter', function (): void {
+    expect(app(SearchContactsValidator::class)->validate(['page' => 2]))->toBe([]);
+});

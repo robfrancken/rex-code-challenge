@@ -9,12 +9,23 @@ use Database\Factories\Contacts\ContactEmailFactory;
 use Database\Factories\Contacts\ContactFactory;
 use Database\Factories\Contacts\ContactPhoneFactory;
 
+function searchData(
+    ?string $q = null,
+    ?string $name = null,
+    ?string $phone = null,
+    ?string $emailDomain = null,
+    int $perPage = 25,
+    ?string $cursor = null,
+): SearchContactsData {
+    return new SearchContactsData($q, $name, $phone, $emailDomain, $perPage, $cursor);
+}
+
 it('finds by name case-insensitively', function (): void {
     ContactFactory::new()->create(['name' => 'Jane Smith']);
     ContactFactory::new()->create(['name' => 'Bob']);
 
-    expect(searchNames(new SearchContactsData('smi', null, null)))->toBe(['Jane Smith']);
-});
+    expect(searchNames(searchData(name: 'SMI')))->toBe(['Jane Smith']);
+})->group('fulltext');
 
 it('finds by phone digits', function (): void {
     $match = ContactFactory::new()->create(['name' => 'Match']);
@@ -22,8 +33,8 @@ it('finds by phone digits', function (): void {
     $other = ContactFactory::new()->create(['name' => 'Other']);
     ContactPhoneFactory::new()->for($other)->create(['phone' => '+61498765432']);
 
-    expect(searchNames(new SearchContactsData(null, '1234', null)))->toBe(['Match']);
-});
+    expect(searchNames(searchData(phone: '1234')))->toBe(['Match']);
+})->group('fulltext');
 
 it('finds an E.164 number when searching by its local format', function (): void {
     $match = ContactFactory::new()->create(['name' => 'Match']);
@@ -34,7 +45,7 @@ it('finds an E.164 number when searching by its local format', function (): void
     $validated = app(SearchContactsValidator::class)->validate(['phone' => '0412 345 678']);
 
     expect(searchNames(SearchContactsData::fromValidated($validated)))->toBe(['Match']);
-});
+})->group('fulltext');
 
 it('finds by exact email domain', function (): void {
     $match = ContactFactory::new()->create(['name' => 'Match']);
@@ -48,8 +59,8 @@ it('finds by exact email domain', function (): void {
         'domain' => 'notrex.com.au',
     ]);
 
-    expect(searchNames(new SearchContactsData(null, null, 'rex.com.au')))->toBe(['Match']);
-});
+    expect(searchNames(searchData(emailDomain: 'rex.com.au')))->toBe(['Match']);
+})->group('fulltext');
 
 it('combines filters with AND', function (): void {
     $both = ContactFactory::new()->create(['name' => 'Jane Smith']);
@@ -63,41 +74,51 @@ it('combines filters with AND', function (): void {
         'domain' => 'other.com',
     ]);
 
-    expect(searchNames(new SearchContactsData('smith', null, 'rex.com.au')))->toBe(['Jane Smith']);
-});
+    expect(searchNames(searchData(name: 'smith', emailDomain: 'rex.com.au')))->toBe(['Jane Smith']);
+})->group('fulltext');
+
+it('searches names and domain prefixes with q', function (): void {
+    ContactFactory::new()->create(['name' => 'Rex Carter']);
+    $domain = ContactFactory::new()->create(['name' => 'Pat Jones']);
+    ContactEmailFactory::new()->for($domain)->create([
+        'email' => 'pat@rex.com.au',
+        'domain' => 'rex.com.au',
+    ]);
+    ContactFactory::new()->create(['name' => 'Bob Brown']);
+
+    expect(searchNames(searchData(q: 'rex')))->toBe(['Pat Jones', 'Rex Carter']);
+})->group('fulltext');
 
 it('returns everything ordered by name without filters', function (): void {
     ContactFactory::new()->create(['name' => 'Charlie']);
     ContactFactory::new()->create(['name' => 'Alice']);
     ContactFactory::new()->create(['name' => 'Bob']);
 
-    expect(searchNames(new SearchContactsData(null, null, null)))->toBe(['Alice', 'Bob', 'Charlie']);
+    expect(searchNames(searchData()))->toBe(['Alice', 'Bob', 'Charlie']);
 });
 
-it('paginates', function (): void {
-    ContactFactory::new()->count(3)->create();
+it('pages by cursor without duplicating or skipping contacts', function (): void {
+    ContactFactory::new()->count(40)->sequence(fn ($sequence): array => ['name' => 'Same Name '.intdiv($sequence->index, 8)])->create();
+    $action = app(SearchContacts::class);
 
-    $page = app(SearchContacts::class)->handle(new SearchContactsData(null, null, null, perPage: 2));
+    $first = $action->handle(searchData(perPage: 25));
+    $second = $action->handle(searchData(perPage: 25, cursor: $first->nextCursor()?->encode()));
 
-    expect($page->items())->toHaveCount(2)
-        ->and($page->total())->toBe(3);
+    $ids = collect($first->items())->merge($second->items())->pluck('id');
+
+    expect($first->items())->toHaveCount(25)
+        ->and($second->items())->toHaveCount(15)
+        ->and($second->nextCursor())->toBeNull()
+        ->and($ids->unique()->count())->toBe(40)
+        ->and($ids->count())->toBe(40);
 });
 
-it('treats % and _ literally', function (): void {
-    ContactFactory::new()->create(['name' => '100% Agency']);
-    ContactFactory::new()->create(['name' => 'Bob']);
-    ContactFactory::new()->create(['name' => 'a_b']);
-    ContactFactory::new()->create(['name' => 'axb']);
+it('loads emails and phones for the page', function (): void {
+    $contact = ContactFactory::new()->create();
+    ContactEmailFactory::new()->for($contact)->create();
 
-    expect(searchNames(new SearchContactsData('%', null, null)))->toBe(['100% Agency'])
-        ->and(searchNames(new SearchContactsData('a_b', null, null)))->toBe(['a_b']);
-});
+    $page = app(SearchContacts::class)->handle(searchData());
 
-it('treats the escape character and a backslash literally', function (): void {
-    ContactFactory::new()->create(['name' => 'Wow! Co']);
-    ContactFactory::new()->create(['name' => 'back\\slash']);
-    ContactFactory::new()->create(['name' => 'Bob']);
-
-    expect(searchNames(new SearchContactsData('!', null, null)))->toBe(['Wow! Co'])
-        ->and(searchNames(new SearchContactsData('\\', null, null)))->toBe(['back\\slash']);
+    expect($page->items()[0]->relationLoaded('emails'))->toBeTrue()
+        ->and($page->items()[0]->relationLoaded('phones'))->toBeTrue();
 });

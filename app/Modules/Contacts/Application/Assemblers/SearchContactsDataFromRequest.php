@@ -19,7 +19,7 @@ final readonly class SearchContactsDataFromRequest
     public function assemble(Request $request): SearchContactsData
     {
         return SearchContactsData::fromValidated($this->validator->validate(
-            $request->only('name', 'phone', 'email_domain', 'page', 'per_page'),
+            $request->only('q', 'name', 'phone', 'email_domain', 'per_page', 'cursor'),
         ));
     }
 }
