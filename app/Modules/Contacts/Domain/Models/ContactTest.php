@@ -16,7 +16,7 @@ it('loads emails and phones in insertion order', function (): void {
     $second = ContactEmailFactory::new()->for($contact)->create();
     $phone = ContactPhoneFactory::new()->for($contact)->create();
 
-    $loaded = Contact::query()->with(['emails', 'phones'])->findOrFail($contact->id);
+    $loaded = Contact::query()->with(['emails.contact', 'phones'])->findOrFail($contact->id);
 
     expect($loaded->emails->pluck('id')->all())->toBe([$first->id, $second->id])
         ->and($loaded->phones->pluck('id')->all())->toBe([$phone->id])

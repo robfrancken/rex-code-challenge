@@ -93,6 +93,12 @@ it('deletes a contact then reports it missing', function (): void {
         ->assertJsonPath('code', 'contact_not_found');
 });
 
+it('returns 405 http_error for a method the contacts collection does not allow', function (): void {
+    $this->putJson('/api/v1/contacts', contactPayload())
+        ->assertMethodNotAllowed()
+        ->assertJsonPath('code', 'http_error');
+});
+
 it('rejects guests from the index', function (): void {
     auth()->forgetGuards();
 

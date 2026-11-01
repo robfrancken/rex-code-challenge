@@ -6,6 +6,7 @@ use App\Http\Problems\ProblemRenderer;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -18,15 +19,15 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $isApiRequest = fn (Request $request): bool => $request->is('api/*', 'login', 'logout') || $request->expectsJson();
+
         $exceptions->dontReport([
             ProblemException::class,
             ApplicationException::class,
         ]);
-        $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*', 'login', 'logout') || $request->expectsJson(),
-        );
+        $exceptions->shouldRenderJsonWhen($isApiRequest);
         $exceptions->render(
-            fn (Throwable $e, Request $request) => $request->is('api/*', 'login', 'logout') || $request->expectsJson()
+            fn (Throwable $e, Request $request) => $isApiRequest($request) && ! $e instanceof HttpResponseException
                 ? ProblemRenderer::render($e)
                 : null,
         );

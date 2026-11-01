@@ -91,6 +91,7 @@
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } }
           },
           "401": { "$ref": "#/components/responses/Unauthenticated" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
           "500": { "$ref": "#/components/responses/ServerError" }
         }
       }

@@ -6,6 +6,7 @@ use App\Exceptions\ApplicationException;
 use App\Exceptions\ProblemException;
 use App\Http\Problems\ProblemRenderer;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
@@ -58,6 +59,14 @@ beforeEach(function (): void {
     Route::middleware('web')->get('api/test/throttle', function (): void {
         throw new ThrottleRequestsException('Slow down.', null, ['Retry-After' => '30']);
     });
+    app()->instance('test.responds-early', new class
+    {
+        public function handle(): never
+        {
+            throw new HttpResponseException(response()->json(['custom' => true], 418));
+        }
+    });
+    Route::middleware(['web', 'test.responds-early'])->get('api/test/http-response', fn (): string => 'unreachable');
     Route::middleware('web')->get('api/test/boom', function (): void {
         throw new RuntimeException('SQLSTATE secret');
     });
@@ -140,6 +149,12 @@ it('renders an unknown route as 404 not_found', function (): void {
     $this->getJson('api/test/does-not-exist')
         ->assertStatus(404)
         ->assertJsonPath('code', 'not_found');
+});
+
+it('returns the response carried by an HttpResponseException from middleware unchanged', function (): void {
+    $this->getJson('api/test/http-response')
+        ->assertStatus(418)
+        ->assertExactJson(['custom' => true]);
 });
 
 it('hides internals of unexpected exceptions even in debug mode', function (): void {

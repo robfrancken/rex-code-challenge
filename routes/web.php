@@ -11,4 +11,4 @@ Route::get('/', function () {
 
 Route::post('/login', LoginController::class)->middleware('throttle:login')->name('login');
 Route::post('/logout', LogoutController::class)->middleware('auth')->name('logout');
-Route::get('/api/v1/me', MeController::class)->middleware('auth')->name('me');
+Route::get('/api/v1/me', MeController::class)->middleware(['auth', 'throttle:api'])->name('me');
