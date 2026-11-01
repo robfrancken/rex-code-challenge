@@ -445,7 +445,7 @@ export interface operations {
             /** @description The contact was created. */
             201: {
                 headers: {
-                    /** @description URL of the created contact. */
+                    /** @description Absolute URL of the created contact */
                     Location?: string;
                     /** @description Present and `true` when this response was replayed from a previous request with the same Idempotency-Key. */
                     "Idempotency-Replayed"?: "true";

@@ -1,0 +1,108 @@
+import { Info, Lock, Mail } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { useNavigate, useSearchParams } from 'react-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { isApiProblem } from '@/lib/api/problem';
+import { isProduction } from '@/lib/env';
+import { login, meQueryKey } from '@/modules/auth/api';
+import { safeRedirect } from '@/modules/auth/safeRedirect';
+
+interface LoginForm {
+    email: string;
+    password: string;
+}
+
+function loginErrorMessage(error: unknown): string {
+    if (isApiProblem(error) && error.status === 429) {
+        const wait = error.retryAfter === undefined ? '' : ` Retry in ${error.retryAfter} seconds.`;
+
+        return `Too many attempts, try again shortly.${wait}`;
+    }
+
+    return isApiProblem(error) ? error.detail : 'Something went wrong. Please try again.';
+}
+
+export function LoginPage() {
+    const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
+    const queryClient = useQueryClient();
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const {
+        register,
+        handleSubmit,
+        formState: { isSubmitting },
+    } = useForm<LoginForm>();
+
+    const onSubmit = handleSubmit(async (values) => {
+        setErrorMessage(null);
+
+        try {
+            const user = await login(values);
+            queryClient.setQueryData(meQueryKey, user);
+            await navigate(safeRedirect(searchParams.get('redirect')), { replace: true });
+        } catch (error) {
+            setErrorMessage(loginErrorMessage(error));
+        }
+    });
+
+    return (
+        <div className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_20%_20%,#eef2ff_0,transparent_40%),radial-gradient(circle_at_80%_80%,#f5f3ff_0,transparent_40%)] bg-background p-4">
+            <Card className="w-full max-w-sm p-7">
+                <div className="flex items-center gap-2.5">
+                    <div className="grid size-[30px] place-items-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 text-[13px] font-bold text-white">
+                        R
+                    </div>
+                    <strong className="text-base">Rex CRM</strong>
+                </div>
+                <h1 className="mt-3.5 text-xl font-semibold">Welcome back</h1>
+                <p className="text-xs text-muted-foreground">Sign in to manage your contacts</p>
+
+                <form onSubmit={onSubmit} className="mt-2 space-y-3.5" noValidate>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="email">Email</Label>
+                        <div className="relative">
+                            <Mail className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                            <Input id="email" type="email" autoComplete="username" className="pl-8" {...register('email')} />
+                        </div>
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="password">Password</Label>
+                        <div className="relative">
+                            <Lock className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                            <Input
+                                id="password"
+                                type="password"
+                                autoComplete="current-password"
+                                className="pl-8"
+                                {...register('password')}
+                            />
+                        </div>
+                    </div>
+
+                    {errorMessage && (
+                        <Alert variant="destructive">
+                            <AlertDescription>{errorMessage}</AlertDescription>
+                        </Alert>
+                    )}
+
+                    <Button type="submit" className="w-full" disabled={isSubmitting}>
+                        Sign in
+                    </Button>
+                </form>
+
+                {!isProduction() && (
+                    <div className="mt-4 flex gap-2.5 rounded-[10px] bg-muted px-3 py-2.5 text-xs text-zinc-700">
+                        <Info className="mt-px size-4 shrink-0 text-muted-foreground" aria-hidden />
+                        <span>Demo account: demo@example.com / password</span>
+                    </div>
+                )}
+            </Card>
+        </div>
+    );
+}
