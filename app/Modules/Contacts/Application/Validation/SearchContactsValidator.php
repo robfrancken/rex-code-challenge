@@ -17,32 +17,34 @@ final class SearchContactsValidator
      */
     public function validate(array $input): array
     {
-        /** @var array{name?: string|null, phone?: string|null, email_domain?: string|null, page?: int|null, per_page?: int|null} */
-        return Validator::make($input, [
+        /** @var array{name?: string|null, phone?: string|null, email_domain?: string|null, page?: int|null, per_page?: int|null} $validated */
+        $validated = Validator::make($input, [
             'name' => ['nullable', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:20', 'regex:/^\+?[0-9]+$/'],
+            'phone' => ['nullable', 'string', 'max:25', 'regex:/^\+?[\s\-(]*[0-9][0-9\s\-()]*$/'],
             'email_domain' => ['nullable', 'string', 'max:253'],
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ])->validate();
+
+        return $this->normalise($validated);
     }
 
     /**
-     * Strips non-digits from the phone and lowercases the domain, so every input source filters identically.
+     * Runs after validation: reduces the phone to digits and lowercases the domain, for every input source.
      *
-     * @param  array<string, mixed>  $input
-     * @return array<string, mixed>
+     * @param  array{name?: string|null, phone?: string|null, email_domain?: string|null, page?: int|null, per_page?: int|null}  $validated
+     * @return array{name?: string|null, phone?: string|null, email_domain?: string|null, page?: int|null, per_page?: int|null}
      */
-    public static function normalise(array $input): array
+    private function normalise(array $validated): array
     {
-        if (is_string($input['phone'] ?? null)) {
-            $input['phone'] = preg_replace('/\D/', '', $input['phone']);
+        if (isset($validated['phone'])) {
+            $validated['phone'] = preg_replace('/\D/', '', $validated['phone']);
         }
 
-        if (is_string($input['email_domain'] ?? null)) {
-            $input['email_domain'] = strtolower(trim($input['email_domain']));
+        if (isset($validated['email_domain'])) {
+            $validated['email_domain'] = strtolower(trim($validated['email_domain']));
         }
 
-        return $input;
+        return $validated;
     }
 }

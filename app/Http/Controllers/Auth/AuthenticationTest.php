@@ -66,6 +66,12 @@ it('throttles the sixth login attempt within a minute', function (): void {
         ->assertJsonPath('code', 'too_many_requests');
 });
 
+it('returns a validation problem, not a server error, for an array email', function (): void {
+    $this->postJson(route('login'), ['email' => ['x'], 'password' => 'password'])
+        ->assertStatus(422)
+        ->assertJsonPath('code', 'validation_failed');
+});
+
 it('redirects a guest on a non-JSON request to the login route without erroring', function (): void {
     $this->get('/api/v1/me', ['Accept' => 'text/html'])->assertUnauthorized();
 });

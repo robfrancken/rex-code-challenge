@@ -20,13 +20,13 @@ final readonly class SearchContactsDataFromCli
     public function assemble(array $options): SearchContactsData
     {
         return SearchContactsData::fromValidated($this->validator->validate(
-            SearchContactsValidator::normalise([
+            [
                 'name' => $options['name'] ?? null,
                 'phone' => $options['phone'] ?? null,
                 'email_domain' => $options['domain'] ?? null,
                 'page' => $options['page'] ?? null,
                 'per_page' => $options['per-page'] ?? null,
-            ]),
+            ],
         ));
     }
 }

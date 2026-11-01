@@ -38,6 +38,8 @@ it('is idempotent', function (): void {
     $data = upsertData($id, emails: ['a@x.com', 'b@y.org']);
 
     app(UpsertContact::class)->handle($data);
+    $updatedAt = DB::table('contacts')->where('id', $id)->value('updated_at');
+    $this->travel(5)->minutes();
     $emailIds = ContactEmail::query()->orderBy('id')->pluck('id')->all();
     $phoneIds = ContactPhone::query()->orderBy('id')->pluck('id')->all();
 
@@ -46,7 +48,8 @@ it('is idempotent', function (): void {
     expect($second->created)->toBeFalse()
         ->and(ContactEmail::query()->orderBy('id')->pluck('id')->all())->toBe($emailIds)
         ->and(ContactPhone::query()->orderBy('id')->pluck('id')->all())->toBe($phoneIds)
-        ->and(Contact::query()->count())->toBe(1);
+        ->and(Contact::query()->count())->toBe(1)
+        ->and(DB::table('contacts')->where('id', $id)->value('updated_at'))->toBe($updatedAt);
 });
 
 it('updates the name and syncs children', function (): void {
