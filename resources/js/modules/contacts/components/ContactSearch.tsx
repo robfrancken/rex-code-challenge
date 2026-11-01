@@ -5,6 +5,19 @@ import { DebouncedInput } from '@/modules/contacts/components/DebouncedInput';
 
 const ERROR_ID = 'q-search-error';
 
+/** The API's limit on `q`. */
+const MAX_QUERY_LENGTH = 255;
+
+/**
+ * One character would match a large share of names and domains by prefix, so the box searches
+ * only once there are two, or when it is emptied to show everyone again.
+ */
+function isSearchableQuery(query: string): boolean {
+    const length = query.trim().length;
+
+    return length === 0 || length >= 2;
+}
+
 interface ContactSearchProps {
     query: string;
     /** The exact email domain the list is narrowed to; empty for none. */
@@ -42,7 +55,9 @@ export function ContactSearch({
                         aria-describedby={error ? ERROR_ID : undefined}
                         placeholder="Search by name, phone or email domain"
                         className="pl-8"
+                        maxLength={MAX_QUERY_LENGTH}
                         value={query}
+                        canCommit={isSearchableQuery}
                         onCommit={onQueryChange}
                     />
                 </div>

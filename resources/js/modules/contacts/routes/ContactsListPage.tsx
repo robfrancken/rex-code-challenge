@@ -1,5 +1,5 @@
 import { Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation, useMatch } from 'react-router';
 import { ProblemAlert } from '@/components/ProblemAlert';
 import { Button } from '@/components/ui/button';
@@ -27,11 +27,33 @@ function useLastLoaded<T>(value: T | undefined): T | undefined {
     return value ?? lastLoaded;
 }
 
+/** What a screen reader hears once another page has loaded: the names the page runs from and to. */
+function pageAnnouncement(contacts: Contact[]): string {
+    if (contacts.length === 0) {
+        return '';
+    }
+    const first = contacts[0].name;
+    const last = contacts[contacts.length - 1].name;
+
+    return contacts.length === 1
+        ? `Showing results: ${first}`
+        : `Showing results: ${first} to ${last}`;
+}
+
 export function ContactsListPage() {
     useDocumentTitle(useMatch('/contacts') ? 'Contacts' : undefined);
     const { search } = useLocation();
-    const { params, query, emailDomain, hasSearch, setQuery, setEmailDomain, goToCursor, clear } =
-        useContactSearchParams();
+    const {
+        params,
+        query,
+        emailDomain,
+        hasSearch,
+        setQuery,
+        setEmailDomain,
+        goToCursor,
+        dropCursor,
+        clear,
+    } = useContactSearchParams();
     const [pendingDelete, setPendingDelete] = useState<Contact | null>(null);
     const {
         data: latest,
@@ -47,6 +69,21 @@ export function ContactsListPage() {
         ? (firstFieldError(error, 'q') ?? firstFieldError(error, 'cursor'))
         : undefined;
     const canRetry = !(isApiProblem(error) && error.status < 500);
+    const rejectsOnlyCursor =
+        isValidationProblem(error) &&
+        Object.keys(error.errors).length > 0 &&
+        Object.keys(error.errors).every((key) => key === 'cursor');
+    const announcement =
+        params.cursor !== undefined && data !== undefined && !isPlaceholderData
+            ? pageAnnouncement(data.data)
+            : '';
+
+    // A stale or edited cursor in the URL: show the first page of the same search instead.
+    useEffect(() => {
+        if (rejectsOnlyCursor) {
+            dropCursor();
+        }
+    }, [rejectsOnlyCursor, dropCursor]);
 
     return (
         <>
@@ -114,10 +151,14 @@ export function ContactsListPage() {
                 )}
 
                 {data && !isEmpty && (
-                    <div className="flex items-center justify-end gap-2 p-3.5">
+                    <nav
+                        aria-label="Pagination"
+                        className="flex items-center justify-end gap-2 p-3.5"
+                    >
                         <Button
                             variant="outline"
                             size="sm"
+                            className="h-11 md:h-8"
                             disabled={isPlaceholderData || data.meta.prev_cursor === null}
                             onClick={() =>
                                 data.meta.prev_cursor && goToCursor(data.meta.prev_cursor)
@@ -128,6 +169,7 @@ export function ContactsListPage() {
                         <Button
                             variant="outline"
                             size="sm"
+                            className="h-11 md:h-8"
                             disabled={isPlaceholderData || data.meta.next_cursor === null}
                             onClick={() =>
                                 data.meta.next_cursor && goToCursor(data.meta.next_cursor)
@@ -135,8 +177,11 @@ export function ContactsListPage() {
                         >
                             Next
                         </Button>
-                    </div>
+                    </nav>
                 )}
+                <p role="status" aria-live="polite" className="sr-only">
+                    {announcement}
+                </p>
             </Card>
             {pendingDelete && (
                 <DeleteContactDialog

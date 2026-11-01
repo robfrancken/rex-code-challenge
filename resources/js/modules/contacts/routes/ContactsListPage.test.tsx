@@ -320,14 +320,38 @@ describe('ContactsListPage', () => {
         expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
     });
 
-    it('shows a 422 on cursor under the search box', async () => {
-        vi.mocked(searchContacts).mockRejectedValue(
-            validationProblem({ cursor: ['The cursor is not a valid page cursor.'] }),
-        );
-        renderList('/contacts?cursor=bad');
+    it('drops a rejected cursor from the url and shows the first page', async () => {
+        vi.mocked(searchContacts).mockImplementation(async (params) => {
+            if (params.cursor) {
+                throw validationProblem({ cursor: ['The cursor is not a valid page cursor.'] });
+            }
 
-        expect(await screen.findByText('The cursor is not a valid page cursor.')).toBeVisible();
+            return makePage([chloe, marcus]);
+        });
+        const router = renderList('/contacts?q=smi&cursor=bad');
+
+        expect(await screen.findByText('Chloe Smith')).toBeInTheDocument();
+        expect(router.state.location.search).toBe('?q=smi');
+        expect(router.state.historyAction).toBe('REPLACE');
+        expect(
+            screen.queryByText('The cursor is not a valid page cursor.'),
+        ).not.toBeInTheDocument();
         expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('keeps the cursor when the 422 rejects q as well, and shows the q error', async () => {
+        vi.mocked(searchContacts).mockRejectedValue(
+            validationProblem({
+                q: ['The q field must not be greater than 255 characters.'],
+                cursor: ['The cursor is not a valid page cursor.'],
+            }),
+        );
+        const router = renderList('/contacts?q=smi&cursor=bad');
+
+        expect(
+            await screen.findByText('The q field must not be greater than 255 characters.'),
+        ).toBeVisible();
+        expect(router.state.location.search).toBe('?q=smi&cursor=bad');
     });
 
     it('shows a 422 on a key with no input in the alert, without Retry', async () => {
@@ -338,6 +362,55 @@ describe('ContactsListPage', () => {
 
         expect(await screen.findByRole('alert')).toHaveTextContent('Validation failed');
         expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+    });
+
+    it('does not search a single character, but searches two or an emptied box', async () => {
+        const router = renderList('/contacts?q=smi');
+        await screen.findByText('Chloe Smith');
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+
+        await typeAndDebounce(SEARCH, ' s ');
+        expect(router.state.location.search).toBe('?q=smi');
+
+        await typeAndDebounce(SEARCH, 'sm');
+        expect(router.state.location.search).toBe('?q=sm');
+
+        await typeAndDebounce(SEARCH, '');
+        expect(router.state.location.search).toBe('');
+    });
+
+    it('caps the search box at 255 characters, the API limit', async () => {
+        renderList();
+
+        expect(await screen.findByLabelText(SEARCH)).toHaveAttribute('maxlength', '255');
+    });
+
+    it('puts Previous and Next in a pagination landmark, touch-sized below md', async () => {
+        renderList();
+
+        const pagination = await screen.findByRole('navigation', { name: 'Pagination' });
+        for (const name of ['Previous', 'Next']) {
+            expect(within(pagination).getByRole('button', { name })).toHaveClass('h-11', 'md:h-8');
+        }
+    });
+
+    it('announces the new page politely after Next', async () => {
+        vi.mocked(searchContacts).mockImplementation(async (params) =>
+            params.cursor === undefined
+                ? makePage([chloe], { next_cursor: 'next-1' })
+                : makePage([chloe, marcus], { prev_cursor: 'prev-1' }),
+        );
+        renderList();
+        await screen.findByText('Chloe Smith');
+        const status = screen.getByRole('status');
+        expect(status).toHaveAttribute('aria-live', 'polite');
+        expect(status).toBeEmptyDOMElement();
+
+        await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+        await waitFor(() =>
+            expect(status).toHaveTextContent('Showing results: Chloe Smith to Marcus Patel'),
+        );
     });
 
     it('does not re-apply a pending draft after Clear', async () => {

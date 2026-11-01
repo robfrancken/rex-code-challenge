@@ -16,6 +16,13 @@ it('serves the spa shell at the root', function (): void {
     $this->get('/')->assertOk()->assertSee('id="app"', false);
 });
 
+it('keeps the page inside the safe area on notched phones', function (): void {
+    $this->get('/')
+        ->assertOk()
+        ->assertSee('<meta name="viewport" content="width=device-width, initial-scale=1">', false)
+        ->assertDontSee('viewport-fit', false);
+});
+
 it('keeps unknown api paths as json problems', function (): void {
     $this->actingAs(User::factory()->create());
 

@@ -53,6 +53,12 @@ export function useContactSearchParams() {
         [update],
     );
 
+    /** Back to the first page of the same search, replacing the entry (for a cursor the API rejected). */
+    const dropCursor = useCallback(
+        () => update((next) => next.delete('cursor'), { replace: true }),
+        [update],
+    );
+
     const clear = useCallback(() => setUrlParams({}), [setUrlParams]);
 
     const params: SearchParams = {};
@@ -71,6 +77,7 @@ export function useContactSearchParams() {
         setQuery,
         setEmailDomain,
         goToCursor,
+        dropCursor,
         clear,
     };
 }
