@@ -89,6 +89,15 @@ it('finds a name by a substring that contains a one character word', function (
     'initial after a surname' => ['Ivy Lehner Ingram', 'lehner i'],
 ])->group('fulltext');
 
+it('matches a one character word only after a separator, never in place of a letter', function (): void {
+    contactNamed('Omar Ellis');
+    contactNamed('Marie Smith');
+    contactNamed('Marley Stark');
+
+    expect(searchedNames(name: 'mar e'))->toBe(['Omar Ellis'])
+        ->and(searchedNames(q: 'mar e'))->toBe(['Omar Ellis']);
+})->group('fulltext');
+
 it('matches a typed separator against a hyphen or a space', function (): void {
     contactNamed('Mary-Jane Watson');
     contactNamed('Mary Jane Kelly');

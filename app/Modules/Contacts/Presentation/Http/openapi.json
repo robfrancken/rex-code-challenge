@@ -113,7 +113,7 @@
           {
             "name": "name",
             "in": "query",
-            "description": "Case-insensitive substring match on the contact name, so `chloe s` finds `Chloe Smith` and `o'reilly` finds `O'Reilly`. A separator typed as a space or a hyphen matches either. When no word in the text has two or more characters (for example `a b`), it matches a name prefix instead.",
+            "description": "Case-insensitive substring match on the contact name, so `chloe s` finds `Chloe Smith` and `o'reilly` finds `O'Reilly`. A run of spaces, hyphens or other search operator characters counts as one separator in both the text and the name, so `mary-jane` finds both `Mary Jane` and `Mary-Jane`, but `mar e` does not find `Marie`. When no word in the text has two or more characters (for example `a b`), it matches a name prefix instead.",
             "schema": { "type": "string", "maxLength": 255 }
           },
           {

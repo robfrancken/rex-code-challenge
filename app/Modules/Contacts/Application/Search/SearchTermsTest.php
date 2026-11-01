@@ -38,6 +38,20 @@ it('builds the fulltext query from the words ngram can index', function (
     'empty' => ['', null],
 ]);
 
+it('knows when the cleaned text is one word to ngram', function (
+    string $cleaned,
+    bool $expected,
+): void {
+    expect(SearchTerms::isOneNgramWord($cleaned))->toBe($expected);
+})->with([
+    'one word' => ['smith', true],
+    'underscore stays in the word' => ['smith_jones', true],
+    'accented word' => ['josé', true],
+    'two words' => ['mary jane', false],
+    'apostrophe' => ["o'reilly", false],
+    'ascii punctuation' => ['jean.luc', false],
+]);
+
 it('accepts q as a phone only when it looks like one', function (
     string $q,
     bool $expected,

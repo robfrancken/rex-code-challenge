@@ -18,13 +18,37 @@ final class SearchTerms
     private const string NGRAM_WORD_BREAK = '/[\x00-\x2F\x3A-\x40\x5B-\x5E\x60\x7B-\x7F]+/u';
 
     /**
+     * The boolean-mode FULLTEXT operators, which name search treats as separators.
+     *
+     * @var list<string>
+     */
+    private const array OPERATORS = ['+', '-', '<', '>', '(', ')', '~', '*', '"', '@'];
+
+    /**
      * Replaces the boolean-mode operators with spaces so search text is only ever text.
      */
     public static function cleanName(string $raw): string
     {
-        $spaced = strtr($raw, array_fill_keys(['+', '-', '<', '>', '(', ')', '~', '*', '"', '@'], ' '));
+        $spaced = strtr($raw, array_fill_keys(self::OPERATORS, ' '));
 
         return trim(preg_replace('/\s+/u', ' ', $spaced) ?? $spaced);
+    }
+
+    /**
+     * A MySQL regex for one run of what cleanName turns into a single space: whitespace and the operators.
+     */
+    public static function separatorRunPattern(): string
+    {
+        return '[\s'.implode('', array_map(fn (string $operator): string => '\\'.$operator, self::OPERATORS)).']+';
+    }
+
+    /**
+     * Whether the cleaned text is a single word to the ngram parser, so its FULLTEXT phrase alone
+     * already matches it exactly as a substring.
+     */
+    public static function isOneNgramWord(string $cleaned): bool
+    {
+        return preg_match(self::NGRAM_WORD_BREAK, $cleaned) !== 1;
     }
 
     /**

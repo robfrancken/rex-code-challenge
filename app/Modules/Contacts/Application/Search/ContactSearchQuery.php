@@ -82,9 +82,10 @@ final class ContactSearchQuery
 
     /**
      * Contact ids whose name contains the cleaned text, or starts with it when no word has two characters.
-     * The FULLTEXT query finds the candidates through the index; the LIKE over those candidates restores
-     * the exact substring, including any one-character word ngram cannot match. In that LIKE a space in
-     * the cleaned text stands for any one separator, so "mary-jane" still finds "Mary-Jane".
+     * The FULLTEXT query finds the candidates through the index. For more than one word, a LIKE over those
+     * candidates restores the exact substring, including any one-character word ngram cannot match. The
+     * LIKE compares against the name with its separators cleaned the same way as the text, so "mary-jane"
+     * still finds "Mary-Jane" while "mar e" never finds "Marie".
      */
     public function nameBranch(string $raw): ?QueryBuilder
     {
@@ -101,11 +102,18 @@ final class ContactSearchQuery
             return $branch->whereRaw('contacts.name like ? escape ?', [$this->escapeLike($cleaned).'%', self::LIKE_ESCAPE]);
         }
 
-        $separatorsAsWildcards = str_replace(' ', '_', $this->escapeLike($cleaned));
+        $branch->whereFullText('contacts.name', $fullText, ['mode' => 'boolean']);
 
-        return $branch
-            ->whereFullText('contacts.name', $fullText, ['mode' => 'boolean'])
-            ->whereRaw('contacts.name like ? escape ?', ['%'.$separatorsAsWildcards.'%', self::LIKE_ESCAPE]);
+        if (SearchTerms::isOneNgramWord($cleaned)) {
+            return $branch;
+        }
+
+        return $branch->whereRaw('regexp_replace(contacts.name, ?, ?) like ? escape ?', [
+            SearchTerms::separatorRunPattern(),
+            ' ',
+            '%'.$this->escapeLike($cleaned).'%',
+            self::LIKE_ESCAPE,
+        ]);
     }
 
     /**
