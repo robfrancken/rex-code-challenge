@@ -7,7 +7,7 @@ description: Use when reviewing changed code for SOLID and design problems, befo
 
 ## Scope
 
-Review `$ARGUMENTS` (files or a diff range). If empty, review `git diff main...HEAD`. Read the surrounding code before judging a changed line.
+Review `$ARGUMENTS` (files or a diff range). If empty, review `git diff main` (branch commits plus uncommitted tracked changes) and the untracked files from `git ls-files --others --exclude-standard`, reading those files in full. Read the surrounding code before judging a changed line.
 
 ## Backend (Laravel / PHP)
 
@@ -27,7 +27,7 @@ Review `$ARGUMENTS` (files or a diff range). If empty, review `git diff main...H
 
 ## Do not flag
 
-- Interfaces with a single implementation and no boundary reason.
+- Do not flag: missing interfaces where there is a single implementation and no boundary reason.
 - Splitting classes or components that change together for the same reason.
 - Small helpers kept inline because extraction would add indirection without benefit.
 

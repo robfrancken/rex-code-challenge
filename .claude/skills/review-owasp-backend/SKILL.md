@@ -9,7 +9,7 @@ Apply the OWASP API Security Top 10 to the changed Laravel code. For Laravel-spe
 
 ## Scope
 
-Review `$ARGUMENTS` (files or a diff range). If empty, review `git diff main...HEAD`. Read the surrounding code before judging a changed line.
+Review `$ARGUMENTS` (files or a diff range). If empty, review `git diff main` (branch commits plus uncommitted tracked changes) and the untracked files from `git ls-files --others --exclude-standard`, reading those files in full. Read the surrounding code before judging a changed line.
 
 ## Checklist
 

@@ -17,7 +17,7 @@ Check the current branch. If it is `main` or `master`, create a branch named aft
 
 ## 2. Size
 
-Classify the task, state the size and the reason in one or two sentences, and let Rob override it before continuing.
+Classify the task, state the size and the reason in one or two sentences, and let the user override it before continuing.
 
 | Size | Signals | Process |
 |---|---|---|
@@ -29,7 +29,7 @@ Do not add ceremony to a trivial task: no spec, no plan.
 
 ## 3. Run the process for that size
 
-Follow the process in the table. For a large task, execute the plan with `superpowers:subagent-driven-development` or `superpowers:executing-plans`. Ask Rob which he prefers if he has not said.
+Follow the process in the table. For a large task, execute the plan with `superpowers:subagent-driven-development` or `superpowers:executing-plans`. Ask the user which they prefer if they have not said.
 
 ## 4. Dependency tree (large tasks only)
 
@@ -49,7 +49,7 @@ After the table, add a Mermaid graph (`graph TD`) with one node per task and an 
 
 ## 5. Review before each commit
 
-Run the review skills that match the changed files, passing the changed files or diff range as the argument:
+Run the review skills that match the changed files, passing the paths of every changed and new file as the argument:
 
 - Backend (PHP, `app/`, `database/`, `routes/`):
   - `review-dry`
@@ -60,7 +60,7 @@ Run the review skills that match the changed files, passing the changed files or
   - `review-solid`
   - `review-owasp-frontend`
 
-Fix every finding, or tell Rob why one is not being fixed. Then run `superpowers:verification-before-completion` and the narrowest tests that cover the change.
+Fix every finding, or tell the user why one is not being fixed. Then run `superpowers:verification-before-completion` and the narrowest tests that cover the change.
 
 ## 6. Commit
 

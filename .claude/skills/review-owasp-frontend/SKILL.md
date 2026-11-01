@@ -7,7 +7,7 @@ description: Use when reviewing React + TypeScript frontend code for security pr
 
 ## Scope
 
-Review `$ARGUMENTS` (files or a diff range). If empty, review `git diff main...HEAD`. Read the surrounding code before judging a changed line.
+Review `$ARGUMENTS` (files or a diff range). If empty, review `git diff main` (branch commits plus uncommitted tracked changes) and the untracked files from `git ls-files --others --exclude-standard`, reading those files in full. Read the surrounding code before judging a changed line.
 
 ## Checklist
 
@@ -16,7 +16,7 @@ Review `$ARGUMENTS` (files or a diff range). If empty, review `git diff main...H
 - CSRF with Laravel session cookies: the client requests `/sanctum/csrf-cookie` or otherwise sends the `X-XSRF-TOKEN` header, with credentials enabled. Flag state-changing calls that skip it.
 - Open redirects: redirect targets taken from query strings or API data are checked against an allowlist or restricted to relative paths.
 - Secrets in the bundle: nothing sensitive in `VITE_` variables or source. Everything with that prefix ships to the browser.
-- Dependency risk: flag new or changed dependencies that are unmaintained, very new, or pulled from git URLs or tarballs. Any new dependency needs Rob's approval.
+- Dependency risk: flag new or changed dependencies that are unmaintained, very new, or pulled from git URLs or tarballs. Any new dependency needs the user's approval.
 - Error handling: API error bodies are not rendered raw to the user.
 
 ## Do not flag
