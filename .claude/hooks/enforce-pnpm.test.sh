@@ -11,13 +11,14 @@ for command in 'npm install' 'npm run build' 'npx vite' 'yarn add react' 'cd x &
   expect_decision "deny: $command" "$hook" "$(bash_input "$command")" deny
   reason="$(printf '%s' "$HOOK_STDOUT" | jq -r '.hookSpecificOutput.permissionDecisionReason // empty' 2>/dev/null || true)"
   expect_contains "reason names pnpm for [$command]" 'pnpm' "$reason"
+  expect_contains "reason offers the text hint for [$command]" 'write it to a file or rephrase' "$reason"
 done
 
 run_hook "$hook" "$(bash_input 'npx vite')"
 expect_contains 'npx reason suggests pnpm dlx' 'pnpm dlx' "$HOOK_STDOUT"
 expect_contains 'npx reason suggests pnpm exec' 'pnpm exec' "$HOOK_STDOUT"
 
-for command in 'pnpm install' 'pnpm exec vite' 'pnpm dlx shadcn' 'pnpm run build' 'echo done' 'git commit -m "REX-0001: switch to pnpm"'; do
+for command in 'pnpm install' 'pnpm exec vite' 'pnpm dlx shadcn' 'pnpm run build' 'echo done' 'command -v npm' 'command -V npx' 'git commit -m "REX-0001: switch to pnpm"'; do
   expect_decision "allow: $command" "$hook" "$(bash_input "$command")" allow
 done
 
