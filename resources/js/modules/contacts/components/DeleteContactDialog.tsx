@@ -1,5 +1,4 @@
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router';
 import {
     AlertDialog,
     AlertDialogCancel,
@@ -17,11 +16,12 @@ import { useDeleteContact } from '@/modules/contacts/api/hooks';
 interface DeleteContactDialogProps {
     contact: Pick<Contact, 'id' | 'name'>;
     onClose: () => void;
+    /** Runs after a successful delete, once the dialog has closed. */
+    onDeleted?: () => void;
 }
 
 /** Mount it to ask for confirmation; `onClose` fires when the user cancels. */
-export function DeleteContactDialog({ contact, onClose }: DeleteContactDialogProps) {
-    const navigate = useNavigate();
+export function DeleteContactDialog({ contact, onClose, onDeleted }: DeleteContactDialogProps) {
     const { mutateAsync, isPending } = useDeleteContact();
 
     async function confirm() {
@@ -36,7 +36,8 @@ export function DeleteContactDialog({ contact, onClose }: DeleteContactDialogPro
         }
 
         toast.success('Contact deleted');
-        await navigate('/contacts');
+        onClose();
+        onDeleted?.();
     }
 
     return (

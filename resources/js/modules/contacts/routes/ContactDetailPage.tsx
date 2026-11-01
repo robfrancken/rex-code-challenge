@@ -1,6 +1,6 @@
 import { Mail, Pencil, Phone, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { isApiProblem, problemMessage } from '@/lib/api/problem';
 import { emailDomain } from '@/lib/format/emailDomain';
+import { formatPhone } from '@/lib/format/phone';
 import { relativeTime } from '@/lib/format/relativeTime';
 import { useCallContact, useContact } from '@/modules/contacts/api/hooks';
 import { CallOutcome } from '@/modules/contacts/components/CallOutcome';
@@ -28,8 +29,15 @@ function DetailSkeleton() {
     );
 }
 
+/** Keyed by id so call state never carries over from one contact to the next. */
 export function ContactDetailPage() {
     const { id = '' } = useParams();
+
+    return <ContactDetail key={id} id={id} />;
+}
+
+function ContactDetail({ id }: { id: string }) {
+    const navigate = useNavigate();
     const { data: contact, error, isPending } = useContact(id);
     const { call, last, error: callError, isPending: isCalling } = useCallContact(id);
     const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -38,7 +46,7 @@ export function ContactDetailPage() {
         return <DetailSkeleton />;
     }
 
-    if (error) {
+    if (!contact) {
         if (isApiProblem(error) && error.code === 'contact_not_found') {
             return <ContactNotFound />;
         }
@@ -104,7 +112,7 @@ export function ContactDetailPage() {
                                     size="sm"
                                     variant={index === 0 ? 'default' : 'outline'}
                                     disabled={isCalling}
-                                    aria-label={`Call ${phone}`}
+                                    aria-label={`Call ${formatPhone(phone)}`}
                                     onClick={() => void call(phone)}
                                 >
                                     <Phone className="size-3.5" aria-hidden />
@@ -136,7 +144,11 @@ export function ContactDetailPage() {
             <CallOutcome result={last} error={callError} isPending={isCalling} />
 
             {confirmingDelete && (
-                <DeleteContactDialog contact={contact} onClose={() => setConfirmingDelete(false)} />
+                <DeleteContactDialog
+                    contact={contact}
+                    onClose={() => setConfirmingDelete(false)}
+                    onDeleted={() => void navigate('/contacts')}
+                />
             )}
         </>
     );

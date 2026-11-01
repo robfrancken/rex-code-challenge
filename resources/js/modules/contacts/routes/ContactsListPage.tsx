@@ -1,6 +1,7 @@
 import { Mail, MoreHorizontal, Phone, Plus, Search } from 'lucide-react';
 import { useState } from 'react';
-import { Link, Outlet, useNavigate, useSearchParams } from 'react-router';
+import { Link, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -18,6 +19,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { problemMessage } from '@/lib/api/problem';
 import { emailDomain } from '@/lib/format/emailDomain';
 import { useContacts } from '@/modules/contacts/api/hooks';
 import type { Contact, SearchParams } from '@/modules/contacts/api/contacts';
@@ -32,6 +34,7 @@ const FILTER_KEYS = ['name', 'phone', 'email_domain'] as const;
 type FilterKey = (typeof FILTER_KEYS)[number];
 
 const SKELETON_ROWS = 5;
+const INTERACTIVE = 'a, button, [role=menuitem], [role=menu]';
 
 function plural(count: number, noun: string): string {
     return `${count} ${noun}${count === 1 ? '' : 's'}`;
@@ -67,13 +70,18 @@ interface ContactRowProps {
 
 function ContactRow({ contact, onSelectDomain, onDelete }: ContactRowProps) {
     const navigate = useNavigate();
+    const { search } = useLocation();
     const [firstEmail] = contact.emails;
     const [firstPhone] = contact.phones;
 
     return (
         <TableRow
             className="cursor-pointer"
-            onClick={() => void navigate(`/contacts/${contact.id}`)}
+            onClick={(event) => {
+                if (!(event.target as HTMLElement).closest(INTERACTIVE)) {
+                    void navigate(`/contacts/${contact.id}`);
+                }
+            }}
         >
             <TableCell>
                 <div className="flex items-center gap-3">
@@ -92,7 +100,7 @@ function ContactRow({ contact, onSelectDomain, onDelete }: ContactRowProps) {
                     </div>
                 </div>
             </TableCell>
-            <TableCell onClick={(event) => event.stopPropagation()}>
+            <TableCell>
                 {firstEmail && (
                     <span className="inline-flex items-center gap-1.5">
                         {firstEmail}
@@ -108,7 +116,7 @@ function ContactRow({ contact, onSelectDomain, onDelete }: ContactRowProps) {
                 {firstPhone && <PhoneNumber value={firstPhone} />}
                 <MoreCount count={contact.phones.length - 1} />
             </TableCell>
-            <TableCell onClick={(event) => event.stopPropagation()}>
+            <TableCell>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button
@@ -124,7 +132,7 @@ function ContactRow({ contact, onSelectDomain, onDelete }: ContactRowProps) {
                             <Link to={`/contacts/${contact.id}`}>View</Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                            <Link to={`/contacts/${contact.id}/edit`}>Edit</Link>
+                            <Link to={{ pathname: `/contacts/${contact.id}/edit`, search }}>Edit</Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem variant="destructive" onSelect={() => onDelete(contact)}>
                             Delete
@@ -150,10 +158,11 @@ function SkeletonRows() {
 
 export function ContactsListPage() {
     const [urlParams, setUrlParams] = useSearchParams();
+    const { search } = useLocation();
     const [pendingDelete, setPendingDelete] = useState<Contact | null>(null);
-    const { data, isPending } = useContacts(toSearchParams(urlParams));
+    const { data, error, isError, isPending, refetch } = useContacts(toSearchParams(urlParams));
     const hasFilters = FILTER_KEYS.some((key) => urlParams.has(key));
-    const isEmpty = data !== undefined && data.data.length === 0;
+    const isEmpty = !isError && data !== undefined && data.data.length === 0;
 
     /** Any filter change returns to page 1, so the user is never stranded past the last page. */
     function setFilter(key: FilterKey, value: string) {
@@ -193,7 +202,7 @@ export function ContactsListPage() {
                     </p>
                 </div>
                 <Button asChild>
-                    <Link to="/contacts/new">
+                    <Link to={{ pathname: '/contacts/new', search }}>
                         <Plus className="size-4" aria-hidden />
                         New contact
                     </Link>
@@ -242,7 +251,7 @@ export function ContactsListPage() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {isPending && <SkeletonRows />}
+                        {isPending && !isError && <SkeletonRows />}
                         {data?.data.map((contact) => (
                             <ContactRow
                                 key={contact.id}
@@ -253,6 +262,18 @@ export function ContactsListPage() {
                         ))}
                     </TableBody>
                 </Table>
+
+                {isError && (
+                    <Alert variant="destructive" className="m-3.5 w-auto">
+                        <AlertTitle>{problemMessage(error).title}</AlertTitle>
+                        <AlertDescription>
+                            {problemMessage(error).detail}
+                            <Button variant="outline" size="sm" className="mt-2" onClick={() => void refetch()}>
+                                Retry
+                            </Button>
+                        </AlertDescription>
+                    </Alert>
+                )}
 
                 {isEmpty && (
                     <div className="space-y-3 p-10 text-center">

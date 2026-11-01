@@ -1,10 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router';
-import { searchContacts } from '@/modules/contacts/api/contacts';
+import { deleteContact, getContact, searchContacts } from '@/modules/contacts/api/contacts';
 import { makeContact, makePage } from '@/modules/contacts/fixtures';
+import { ContactSheet } from '@/modules/contacts/routes/ContactSheet';
 import { ContactsListPage } from '@/modules/contacts/routes/ContactsListPage';
+import { ApiProblem } from '@/lib/api/problem';
 
 vi.mock('@/modules/contacts/api/contacts');
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
@@ -20,7 +22,14 @@ const marcus = makeContact({
 function renderList(initialEntry = '/contacts') {
     const router = createMemoryRouter(
         [
-            { path: '/contacts', element: <ContactsListPage /> },
+            {
+                path: '/contacts',
+                element: <ContactsListPage />,
+                children: [
+                    { path: 'new', element: <ContactSheet /> },
+                    { path: ':id/edit', element: <ContactSheet /> },
+                ],
+            },
             { path: '/contacts/:id', element: <p>Detail page</p> },
         ],
         { initialEntries: [initialEntry] },
@@ -142,5 +151,82 @@ describe('ContactsListPage', () => {
         expect(await screen.findByRole('alertdialog')).toHaveTextContent(
             "Delete Chloe Smith? This can't be undone.",
         );
+    });
+
+    it('closes the delete dialog after a successful delete and keeps the url and filters', async () => {
+        vi.mocked(deleteContact).mockResolvedValue(undefined);
+        const router = renderList('/contacts?name=smi&page=2');
+
+        await userEvent.click(
+            await screen.findByRole('button', { name: 'Actions for Chloe Smith' }),
+        );
+        await userEvent.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+        const dialog = await screen.findByRole('alertdialog');
+        await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+        await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+        expect(deleteContact).toHaveBeenCalledWith(chloe.id);
+        expect(router.state.location.pathname).toBe('/contacts');
+        expect(router.state.location.search).toBe('?name=smi&page=2');
+    });
+
+    it('keeps the filters when the New contact sheet is opened and closed', async () => {
+        const router = renderList('/contacts?name=smi&page=2');
+
+        await userEvent.click(await screen.findByRole('link', { name: 'New contact' }));
+        expect(router.state.location.pathname).toBe('/contacts/new');
+        expect(router.state.location.search).toBe('?name=smi&page=2');
+        await userEvent.click(await screen.findByRole('button', { name: 'Close' }));
+
+        await waitFor(() => expect(router.state.location.pathname).toBe('/contacts'));
+        expect(router.state.location.search).toBe('?name=smi&page=2');
+    });
+
+    it('keeps the filters when a row Edit sheet is opened and closed', async () => {
+        vi.mocked(getContact).mockResolvedValue(chloe);
+        const router = renderList('/contacts?name=smi&page=2');
+
+        await userEvent.click(
+            await screen.findByRole('button', { name: 'Actions for Chloe Smith' }),
+        );
+        await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+        expect(router.state.location.pathname).toBe(`/contacts/${chloe.id}/edit`);
+        expect(router.state.location.search).toBe('?name=smi&page=2');
+        await userEvent.click(await screen.findByRole('button', { name: 'Close' }));
+
+        await waitFor(() => expect(router.state.location.pathname).toBe('/contacts'));
+        expect(router.state.location.search).toBe('?name=smi&page=2');
+    });
+
+    it('shows an error alert with the problem text and Retry queries again', async () => {
+        vi.mocked(searchContacts).mockRejectedValue(
+            new ApiProblem({
+                type: 't',
+                title: 'Server error',
+                status: 500,
+                detail: 'The server fell over.',
+                code: 'server_error',
+            }),
+        );
+        renderList();
+
+        expect(await screen.findByRole('alert')).toHaveTextContent('The server fell over.');
+        expect(searchContacts).toHaveBeenCalledTimes(1);
+        await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+
+        await waitFor(() => expect(searchContacts).toHaveBeenCalledTimes(2));
+    });
+
+    it('does not re-apply a pending draft after Clear', async () => {
+        const router = renderList('/contacts?name=abc');
+        await screen.findByText('Chloe Smith');
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+
+        fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'abcd' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+        await act(() => vi.advanceTimersByTimeAsync(300));
+
+        expect(router.state.location.search).toBe('');
+        expect(screen.getByLabelText('Name')).toHaveValue('');
     });
 });

@@ -8,12 +8,22 @@ interface DebouncedInputProps extends Omit<ComponentProps<typeof Input>, 'value'
     onCommit: (value: string) => void;
 }
 
-/** Shows what the user types at once, but reports it via `onCommit` only after 300 ms of quiet. */
+/**
+ * Shows what the user types at once, but reports it via `onCommit` only after 300 ms of quiet.
+ * A `value` change from outside (Clear, a badge) drops any pending draft and replaces the text.
+ */
 export function DebouncedInput({ value, onCommit, ...props }: DebouncedInputProps) {
     const [draft, setDraft] = useState(value);
     const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+    const lastCommitted = useRef(value);
 
-    useEffect(() => setDraft(value), [value]);
+    useEffect(() => {
+        if (value !== lastCommitted.current) {
+            clearTimeout(timer.current);
+            lastCommitted.current = value;
+            setDraft(value);
+        }
+    }, [value]);
     useEffect(() => () => clearTimeout(timer.current), []);
 
     return (
@@ -24,7 +34,10 @@ export function DebouncedInput({ value, onCommit, ...props }: DebouncedInputProp
                 const next = event.target.value;
                 setDraft(next);
                 clearTimeout(timer.current);
-                timer.current = setTimeout(() => onCommit(next), DEBOUNCE_MS);
+                timer.current = setTimeout(() => {
+                    lastCommitted.current = next;
+                    onCommit(next);
+                }, DEBOUNCE_MS);
             }}
         />
     );
