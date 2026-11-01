@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use App\Models\User;
 use App\Modules\Contacts\Domain\Telephony\CallOutcome;
+use App\Modules\Contacts\Presentation\Http\Middleware\EnsureIdempotency;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Route;
 
 beforeEach(function (): void {
     $this->actingAs(User::factory()->create());
@@ -107,4 +109,32 @@ it('returns 409 with Retry-After when a request with the same key is in flight',
 
     expect($gateway->dialled)->toBe([]);
     $lock->release();
+});
+
+it('replays the Location header of a stored response', function (): void {
+    $headers = ['Idempotency-Key' => 'abc'];
+
+    $first = $this->postJson(route('contacts.store'), contactPayload(), $headers)->assertCreated();
+    $second = $this->postJson(route('contacts.store'), contactPayload(), $headers)
+        ->assertCreated()
+        ->assertHeader('Idempotency-Replayed', 'true');
+
+    expect($first->headers->get('Location'))->not->toBeNull()
+        ->and($second->headers->get('Location'))->toBe($first->headers->get('Location'));
+});
+
+it('never replays a stored Set-Cookie header', function (): void {
+    Route::post('api/v1/cookie-probe', fn () => response()->json(['ok' => true], 201)
+        ->cookie('probe', 'secret')
+        ->header('X-Internal', 'leak'))
+        ->middleware(['web', 'auth', EnsureIdempotency::class]);
+    $headers = ['Idempotency-Key' => 'abc'];
+
+    $this->postJson('/api/v1/cookie-probe', [], $headers)->assertCreated();
+    $replay = $this->postJson('/api/v1/cookie-probe', [], $headers)
+        ->assertCreated()
+        ->assertHeader('Idempotency-Replayed', 'true');
+
+    expect(collect($replay->headers->getCookies())->map->getName()->all())->not->toContain('probe')
+        ->and($replay->headers->has('X-Internal'))->toBeFalse();
 });

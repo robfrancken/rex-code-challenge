@@ -28,6 +28,11 @@ final class EnsureIdempotency
     private const int TTL_SECONDS = 86400;
 
     /**
+     * The only response headers stored and replayed; anything else (Set-Cookie, session headers) is never replayed.
+     */
+    private const array REPLAYED_HEADERS = ['Content-Type', 'Location'];
+
+    /**
      * @param  Closure(Request): Response  $next
      *
      * @throws IdempotencyKeyMissing
@@ -76,7 +81,7 @@ final class EnsureIdempotency
         string $cacheKey,
         string $fingerprint,
     ): Response {
-        /** @var array{fingerprint: string, status: int, body: string, content_type: string}|null $stored */
+        /** @var array{fingerprint: string, status: int, body: string, headers: array<string, string>}|null $stored */
         $stored = Cache::get($cacheKey);
 
         if ($stored !== null) {
@@ -85,7 +90,7 @@ final class EnsureIdempotency
             }
 
             return response($stored['body'], $stored['status'], [
-                'Content-Type' => $stored['content_type'],
+                ...$stored['headers'],
                 'Idempotency-Replayed' => 'true',
             ]);
         }
@@ -97,10 +102,28 @@ final class EnsureIdempotency
                 'fingerprint' => $fingerprint,
                 'status' => $response->getStatusCode(),
                 'body' => (string) $response->getContent(),
-                'content_type' => (string) $response->headers->get('Content-Type'),
+                'headers' => $this->replayableHeaders($response),
             ], self::TTL_SECONDS);
         }
 
         return $response;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function replayableHeaders(Response $response): array
+    {
+        $headers = [];
+
+        foreach (self::REPLAYED_HEADERS as $name) {
+            $value = $response->headers->get($name);
+
+            if ($value !== null) {
+                $headers[$name] = $value;
+            }
+        }
+
+        return $headers;
     }
 }
