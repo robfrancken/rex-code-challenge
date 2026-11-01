@@ -40,6 +40,13 @@ expect_equals 'non-php file: stderr' '' "$HOOK_STDERR"
 run_hook "$hook" "$(edit_input Edit "$fixture_dir/Missing.php" PostToolUse)"
 expect_equals 'missing php file: exit' '0' "$HOOK_EXIT"
 
+pair="$fixture_dir/Pair.php"
+printf '%s\n' '<?php' '' 'function pair(string $a, string $b): array' '{' "    return ['a' => \$a, 'b' => \$b];" '}' >"$pair"
+run_hook "$hook" "$(edit_input Edit "$pair" PostToolUse)"
+expect_equals 'splits multi-item lists: exit' '0' "$HOOK_EXIT"
+expect_contains 'splits a multi-parameter declaration' "$(printf 'function pair(\n    string $a,\n    string $b,\n): array')" "$(cat "$pair")"
+expect_contains 'splits a multi-key array' "$(printf "return [\n        'a' => \$a,\n        'b' => \$b,\n    ];")" "$(cat "$pair")"
+
 no_vendor="$HOOK_TEST_DIR/php-without-vendor"
 mkdir -p "$no_vendor"
 printf '%s' "$unformatted" >"$no_vendor/A.php"

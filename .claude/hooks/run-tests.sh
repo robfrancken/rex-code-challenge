@@ -8,7 +8,8 @@ found=0
 while IFS= read -r test_file; do
   found=1
   printf '== %s\n' "${test_file#"$claude_dir"/}"
-  if ! bash "$test_file"; then
+  # stdin is the list of test files; a test that reads stdin (e.g. Pint) must not consume it.
+  if ! bash "$test_file" </dev/null; then
     status=1
   fi
 done < <(find "$claude_dir" -path "$claude_dir/worktrees" -prune -o -name '*.test.sh' -print | sort)
