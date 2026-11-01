@@ -7,9 +7,11 @@ use App\Modules\Contacts\Domain\Models\Contact;
 use Database\Seeders\DatabaseSeeder;
 
 it('can be run twice without duplicating the demo user or contacts', function (): void {
+    config(['contacts.seed.bulk_contacts' => 100]);
+
     $this->seed(DatabaseSeeder::class);
     $this->seed(DatabaseSeeder::class);
 
     expect(User::query()->where('email', 'demo@example.com')->count())->toBe(1)
-        ->and(Contact::count())->toBe(40);
+        ->and(Contact::count())->toBe(140);
 });
