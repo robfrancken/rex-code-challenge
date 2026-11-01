@@ -40,6 +40,19 @@ expect_segment 'for f in a b; do rm -rf $f; done' 'rm -rf $f'
 expect_segment 'ls && ! rm -rf x' 'rm -rf x'
 expect_segment 'if true; then npm i; fi' 'npm i'
 
+expect_segment 'eval rm -rf x' 'rm -rf x'
+expect_segment 'timeout 10 rm -rf x' 'rm -rf x'
+expect_segment 'timeout -s KILL 10 rm -rf x' 'rm -rf x'
+expect_segment 'timeout -k 5 10s rm -rf x' 'rm -rf x'
+expect_segment 'timeout --kill-after=5 10 rm -rf x' 'rm -rf x'
+expect_segment 'timeout --signal KILL 10 rm -rf x' 'rm -rf x'
+expect_segment 'find . -name x | xargs rm' 'rm'
+expect_segment 'find . -name x | xargs rm' 'xargs rm'
+expect_segment 'find . | xargs -n 1 npm i' 'npm i'
+expect_segment 'command rm -rf x' 'rm -rf x'
+expect_segment 'command -v npm' 'command -v npm'
+expect_segment 'command -V npm' 'command -V npm'
+
 expect_segment 'sudo -u root rm -rf /' 'rm -rf /'
 expect_segment 'nice -n 10 rm -rf x' 'rm -rf x'
 expect_segment 'xargs -n 1 rm -rf' 'rm -rf'
@@ -94,7 +107,11 @@ expect_equals 'edit_input event' 'PostToolUse' "$(printf '%s' "$edit_json" | jq 
 git_parse_segment 'git -C /x -c a=b commit -am msg'
 expect_equals 'git_parse_segment skips option values' 'commit' "$GIT_SUB"
 expect_equals 'git_parse_segment args' '-am msg' "${GIT_ARGS[*]}"
+expect_equals 'git_parse_segment records -C dir' '/x' "$GIT_C_DIR"
+git_parse_segment 'git -C app -C sub checkout x'
+expect_equals 'git_parse_segment joins relative -C dirs' 'app/sub' "$GIT_C_DIR"
 git_parse_segment 'git status'
+expect_equals 'git_parse_segment clears -C dir' '' "$GIT_C_DIR"
 expect_equals 'git_parse_segment with no args' '' "${GIT_ARGS[*]-}"
 git_parse_segment 'git --no-pager log -1'
 expect_equals 'git_parse_segment skips bare options' 'log' "$GIT_SUB"

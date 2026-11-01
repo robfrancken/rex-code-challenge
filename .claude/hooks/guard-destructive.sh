@@ -10,7 +10,7 @@ source "$here/lib/hook.sh"
 
 hook_read_input
 
-hint="If this is really needed, ask the user to run it themselves."
+hint="If this is really needed, ask the user to run it themselves. If this was only text (a commit or PR body, a grep pattern), write it to a file or rephrase instead."
 
 # Succeeds when any argument equals one of the given words.
 has_arg() {
@@ -23,18 +23,32 @@ has_arg() {
   return 1
 }
 
-# Succeeds when the parsed git checkout can discard changes: -f/--force, a --
-# token, a . argument, or a non-option argument that exists as a path in cwd.
-checkout_discards() {
-  local arg
-  for arg in ${GIT_ARGS[@]+"${GIT_ARGS[@]}"}; do
-    case "$arg" in
-      --force | -f | -- | .) return 0 ;;
-      -*) ;;
-      *) [ -e "$checkout_dir/$arg" ] && return 0 ;;
+# Succeeds when the parsed git checkout is a safe branch change: a new branch
+# (-b/-B/--orphan name [start]), "-", or one argument that resolves to a commit.
+# Everything else (paths, --, ., -f, ...) can discard changes.
+checkout_is_safe() {
+  local count="${#GIT_ARGS[@]}" repo_dir="$checkout_dir"
+  [ "$count" -gt 0 ] || return 1
+  case "${GIT_ARGS[0]}" in
+    -b | -B | --orphan)
+      [ "$count" -ge 2 ] && [ "$count" -le 3 ] || return 1
+      case "${GIT_ARGS[1]}" in -*) return 1 ;; esac
+      if [ "$count" -eq 3 ]; then
+        case "${GIT_ARGS[2]}" in -*) return 1 ;; esac
+      fi
+      return 0
+      ;;
+  esac
+  [ "$count" -eq 1 ] || return 1
+  [ "${GIT_ARGS[0]}" = "-" ] && return 0
+  case "${GIT_ARGS[0]}" in -*) return 1 ;; esac
+  if [ -n "$GIT_C_DIR" ]; then
+    case "$GIT_C_DIR" in
+      /*) repo_dir="$GIT_C_DIR" ;;
+      *) repo_dir="$checkout_dir/$GIT_C_DIR" ;;
     esac
-  done
-  return 1
+  fi
+  git -C "$repo_dir" rev-parse --verify -q "${GIT_ARGS[0]}^{commit}" >/dev/null 2>&1
 }
 
 check_git() {
@@ -83,9 +97,16 @@ check_git() {
       fi
       ;;
     checkout)
-      if checkout_discards; then
-        hook_deny "git checkout -- / . discards uncommitted changes. Use git switch to change branches, or ask the user. $hint"
+      if ! checkout_is_safe; then
+        hook_deny "git checkout with paths, --, . or -f discards uncommitted changes. Use git switch to change branches, or ask the user. $hint"
       fi
+      ;;
+    switch)
+      for arg in ${GIT_ARGS[@]+"${GIT_ARGS[@]}"}; do
+        case "$arg" in
+          --force | --discard-changes | -f | -[!-]*f*) hook_deny "git switch --force/--discard-changes throws away uncommitted changes. Use git switch without the flag, or ask the user. $hint" ;;
+        esac
+      done
       ;;
     restore)
       if { ! has_arg --staged -S; } || has_arg --worktree -W; then
@@ -122,6 +143,11 @@ check_segment() {
       git_parse_segment "$line" || true
       check_git
       ;;
+    xargs)
+      if [ "${words[1]:-}" = "rm" ]; then
+        hook_deny "xargs rm deletes whatever it is fed, like find -exec rm. Use git rm, delete a single named file with rm, or ask the user. $hint"
+      fi
+      ;;
   esac
 
   is_artisan=0
@@ -133,7 +159,7 @@ check_segment() {
   [ "$is_artisan" -eq 1 ] || return 0
   for arg in "${words[@]:1}"; do
     case "$arg" in
-      db:wipe | migrate:fresh | migrate:reset) hook_deny "artisan $arg destroys database data. Use php artisan migrate for new migrations, or ask the user. $hint" ;;
+      db:wipe | migrate:fresh | migrate:refresh | migrate:reset) hook_deny "artisan $arg destroys database data. Use php artisan migrate for new migrations, or ask the user. $hint" ;;
     esac
   done
 }

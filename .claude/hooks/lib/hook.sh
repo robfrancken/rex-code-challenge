@@ -64,7 +64,7 @@ hook_quoted_strings() {
 # Quote characters are removed (so quoted flags and program names are seen), and
 # the contents of each quoted string are also normalised as extra input.
 command_segments() {
-  local text="$1" line token program rest stripping wrapper skip_next quoted
+  local text="$1" line token program rest stripping wrapper skip_next skip_duration via_xargs quoted
   local -a tokens
   local backslash_newline=$'\\\n'
   text="${text//"$backslash_newline"/}"
@@ -81,25 +81,44 @@ command_segments() {
         stripping=0
         wrapper=""
         skip_next=0
+        skip_duration=0
+        via_xargs=0
         for token in "${tokens[@]}"; do
           if [ -z "$program" ]; then
             if [ "$skip_next" -eq 1 ]; then
               skip_next=0
               continue
             fi
+            if [ "$skip_duration" -eq 1 ]; then
+              case "$token" in
+                -*) ;;
+                *)
+                  skip_duration=0
+                  continue
+                  ;;
+              esac
+            fi
             case "$token" in
               then | do | else | elif | while | until | if | '!')
                 continue
                 ;;
-              sudo | env | command | exec | nohup | time | nice | xargs)
+              sudo | env | command | exec | nohup | time | nice | xargs | eval | timeout)
                 stripping=1
                 wrapper="$token"
+                skip_duration=0
+                [ "$token" = "timeout" ] && skip_duration=1
+                [ "$token" = "xargs" ] && via_xargs=1
                 continue
                 ;;
               -*)
                 if [ "$stripping" -eq 1 ]; then
                   case "$wrapper:$token" in
-                    sudo:-[ughpCU] | nice:-n | env:-[uC] | xargs:-[nILPsdEa])
+                    command:-v | command:-V)
+                      program="command"
+                      rest=" $token"
+                      continue
+                      ;;
+                    sudo:-[ughpCU] | nice:-n | env:-[uC] | xargs:-[nILPsdEa] | timeout:-s | timeout:-k | timeout:--signal | timeout:--kill-after)
                       skip_next=1
                       ;;
                   esac
@@ -118,6 +137,9 @@ command_segments() {
         done
         if [ -n "$program" ]; then
           printf '%s%s\n' "$program" "$rest"
+          if [ "$via_xargs" -eq 1 ] && [ "$program" = "rm" ]; then
+            printf 'xargs rm%s\n' "$rest"
+          fi
         fi
       done
   while IFS= read -r quoted; do
@@ -131,18 +153,29 @@ command_segments() {
 # words after it. Returns 1, with both empty, if the segment's program is not git.
 GIT_SUB=""
 GIT_ARGS=()
+# GIT_C_DIR is the directory given with -C (relative -C values are joined), or empty.
+GIT_C_DIR=""
 git_parse_segment() {
   local -a words
-  local index=1 count word
+  local index=1 count word value
   read -r -a words <<<"$1" || true
   GIT_SUB=""
   GIT_ARGS=()
+  GIT_C_DIR=""
   [ "${words[0]:-}" = "git" ] || return 1
   count="${#words[@]}"
   while [ "$index" -lt "$count" ]; do
     word="${words[$index]}"
     case "$word" in
-      -C | -c | --git-dir | --work-tree | --namespace)
+      -C)
+        value="${words[$((index + 1))]:-}"
+        case "$value" in
+          /*) GIT_C_DIR="$value" ;;
+          *) GIT_C_DIR="${GIT_C_DIR:+$GIT_C_DIR/}$value" ;;
+        esac
+        index=$((index + 2))
+        ;;
+      -c | --git-dir | --work-tree | --namespace)
         index=$((index + 2))
         ;;
       -*)
