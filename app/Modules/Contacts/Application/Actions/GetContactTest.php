@@ -7,6 +7,7 @@ use App\Modules\Contacts\Application\Exceptions\ContactNotFound;
 use Database\Factories\Contacts\ContactEmailFactory;
 use Database\Factories\Contacts\ContactFactory;
 use Database\Factories\Contacts\ContactPhoneFactory;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 it('returns the contact with its relations loaded', function (): void {
@@ -29,6 +30,20 @@ it('throws ContactNotFound for an unknown id', function (): void {
     } catch (ContactNotFound $exception) {
         expect($exception->problemCode())->toBe('contact_not_found')
             ->and($exception->status())->toBe(404);
+
+        return;
+    }
+
+    $this->fail('Expected ContactNotFound.');
+});
+
+it('treats a non-uuid id as not found without querying', function (): void {
+    DB::enableQueryLog();
+
+    try {
+        app(GetContact::class)->handle('abc');
+    } catch (ContactNotFound) {
+        expect(DB::getQueryLog())->toBe([]);
 
         return;
     }

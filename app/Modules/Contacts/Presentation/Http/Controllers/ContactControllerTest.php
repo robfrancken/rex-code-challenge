@@ -12,18 +12,6 @@ beforeEach(function (): void {
     $this->actingAs(User::factory()->create());
 });
 
-/**
- * @return array{name: string, emails: list<string>, phones: list<string>}
- */
-function contactPayload(): array
-{
-    return [
-        'name' => 'Jane Citizen',
-        'emails' => ['jane@rex.com.au'],
-        'phones' => ['+61412345678'],
-    ];
-}
-
 it('creates a contact with 201 and updates it with 200', function (): void {
     $id = (string) Str::uuid();
 
@@ -69,9 +57,12 @@ it('returns 404 contact_not_found for an unknown uuid', function (): void {
         ->assertJsonPath('code', 'contact_not_found');
 });
 
-it('returns 404 not_found for a non-uuid id', function (): void {
-    $this->getJson('/api/v1/contacts/abc')->assertNotFound()->assertJsonPath('code', 'not_found');
-    $this->deleteJson('/api/v1/contacts/abc')->assertNotFound()->assertJsonPath('code', 'not_found');
+it('returns 404 contact_not_found for a non-uuid id', function (): void {
+    $this->getJson('/api/v1/contacts/abc')
+        ->assertNotFound()
+        ->assertJsonPath('code', 'contact_not_found')
+        ->assertJsonPath('detail', 'No contact exists with id abc.');
+    $this->deleteJson('/api/v1/contacts/abc')->assertNotFound()->assertJsonPath('code', 'contact_not_found');
 });
 
 it('filters and paginates the index', function (): void {

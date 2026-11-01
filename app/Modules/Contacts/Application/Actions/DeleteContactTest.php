@@ -10,6 +10,7 @@ use App\Modules\Contacts\Domain\Models\ContactPhone;
 use Database\Factories\Contacts\ContactEmailFactory;
 use Database\Factories\Contacts\ContactFactory;
 use Database\Factories\Contacts\ContactPhoneFactory;
+use Illuminate\Support\Facades\DB;
 
 it('deletes the contact and its children', function (): void {
     $contact = ContactFactory::new()->create();
@@ -29,3 +30,17 @@ it('throws ContactNotFound when deleting twice', function (): void {
 
     app(DeleteContact::class)->handle($contact->id);
 })->throws(ContactNotFound::class);
+
+it('treats a non-uuid id as not found without querying', function (): void {
+    DB::enableQueryLog();
+
+    try {
+        app(DeleteContact::class)->handle('abc');
+    } catch (ContactNotFound) {
+        expect(DB::getQueryLog())->toBe([]);
+
+        return;
+    }
+
+    $this->fail('Expected ContactNotFound.');
+});

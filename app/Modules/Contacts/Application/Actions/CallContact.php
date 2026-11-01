@@ -14,6 +14,7 @@ use App\Modules\Contacts\Domain\Telephony\CallOutcome;
 use App\Modules\Contacts\Domain\Telephony\TelephonyGateway;
 use App\Modules\Contacts\Domain\ValueObjects\PhoneNumber;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 final readonly class CallContact
@@ -27,6 +28,10 @@ final readonly class CallContact
      */
     public function handle(CallContactData $data): CallResult
     {
+        if (! Str::isUuid($data->contactId)) {
+            throw ContactNotFound::withId($data->contactId);
+        }
+
         $contact = Contact::query()->with('phones')->find($data->contactId)
             ?? throw ContactNotFound::withId($data->contactId);
 
