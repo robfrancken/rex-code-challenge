@@ -44,7 +44,7 @@ function ContactRow({ contact, onSelectDomain, onDelete }: ContactRowProps) {
 
     return (
         <TableRow
-            className="cursor-pointer"
+            className="h-14 cursor-pointer md:h-auto"
             onClick={(event) => {
                 if (!(event.target as HTMLElement).closest(INTERACTIVE)) {
                     void navigate(`/contacts/${contact.id}`);
@@ -68,7 +68,7 @@ function ContactRow({ contact, onSelectDomain, onDelete }: ContactRowProps) {
                     </div>
                 </div>
             </TableCell>
-            <TableCell>
+            <TableCell className="hidden md:table-cell">
                 {firstEmail && (
                     <span className="inline-flex items-center gap-1.5">
                         {firstEmail}
@@ -80,7 +80,7 @@ function ContactRow({ contact, onSelectDomain, onDelete }: ContactRowProps) {
                     </span>
                 )}
             </TableCell>
-            <TableCell>
+            <TableCell className="hidden md:table-cell">
                 {firstPhone && <PhoneNumber value={firstPhone} />}
                 <MoreCount count={contact.phones.length - 1} />
             </TableCell>
@@ -118,7 +118,10 @@ function SkeletonRows() {
     return Array.from({ length: SKELETON_ROWS }, (_, index) => (
         <TableRow key={index} data-testid="skeleton-row">
             {[0, 1, 2, 3].map((cell) => (
-                <TableCell key={cell}>
+                <TableCell
+                    key={cell}
+                    className={cell === 1 || cell === 2 ? 'hidden md:table-cell' : undefined}
+                >
                     <Skeleton className="h-5 w-full" />
                 </TableCell>
             ))}
@@ -146,8 +149,8 @@ export function ContactsTable({
             <TableHeader>
                 <TableRow>
                     <TableHead>Contact</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Phone</TableHead>
+                    <TableHead className="hidden md:table-cell">Email</TableHead>
+                    <TableHead className="hidden md:table-cell">Phone</TableHead>
                     <TableHead className="w-10">
                         <span className="sr-only">Actions</span>
                     </TableHead>

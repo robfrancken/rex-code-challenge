@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router';
 import { toast } from 'sonner';
@@ -100,5 +100,57 @@ describe('AppShell layout', () => {
         const sidebar = screen.getByRole('button', { name: 'Sign out' }).closest('aside');
         expect(sidebar).toHaveClass('sticky', 'top-0', 'h-svh', 'self-start');
         expect(screen.getByRole('main')).toHaveClass('min-w-0');
+    });
+});
+
+describe('AppShell on small screens', () => {
+    beforeEach(() => vi.resetAllMocks());
+
+    it('hides the desktop sidebar below md', () => {
+        renderShell();
+
+        const sidebar = screen.getAllByRole('button', { name: 'Sign out' })[0].closest('aside');
+        expect(sidebar).toHaveClass('hidden', 'md:flex');
+    });
+
+    it('offers an Open navigation button in a top bar that is hidden from md up', () => {
+        renderShell();
+
+        const button = screen.getByRole('button', { name: 'Open navigation' });
+        expect(button.closest('header')).toHaveClass('md:hidden', 'sticky', 'top-0');
+    });
+
+    it('opens a dialog holding the Contacts link and sign out', async () => {
+        renderShell();
+
+        await userEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
+
+        const dialog = await screen.findByRole('dialog');
+        expect(within(dialog).getByRole('link', { name: 'Contacts' })).toBeInTheDocument();
+        expect(within(dialog).getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
+    });
+
+    it('closes the sheet when the Contacts link is followed', async () => {
+        const { router } = renderShell();
+        await userEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
+
+        await userEvent.click(
+            within(await screen.findByRole('dialog')).getByRole('link', { name: 'Contacts' }),
+        );
+
+        await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+        expect(router.state.location.pathname).toBe('/contacts');
+    });
+
+    it('signs out from the sheet', async () => {
+        vi.mocked(logout).mockResolvedValue(undefined);
+        const { router } = renderShell();
+        await userEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
+
+        await userEvent.click(
+            within(await screen.findByRole('dialog')).getByRole('button', { name: 'Sign out' }),
+        );
+
+        await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
     });
 });

@@ -129,7 +129,7 @@ export function ContactSheet() {
 
     return (
         <Sheet open onOpenChange={(open) => !open && close()}>
-            <SheetContent className="sm:max-w-md">
+            <SheetContent className="w-full sm:max-w-md">
                 <SheetHeader>
                     <SheetTitle>{title}</SheetTitle>
                     <SheetDescription>

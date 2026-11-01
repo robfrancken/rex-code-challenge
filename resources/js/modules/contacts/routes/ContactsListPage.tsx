@@ -43,14 +43,14 @@ export function ContactsListPage() {
 
     return (
         <>
-            <div className="mb-4 flex items-start justify-between gap-4">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                 <div>
                     <h1 className="text-[22px] font-semibold tracking-tight">Contacts</h1>
                     <p className="text-muted-foreground mt-1 text-sm">
                         Search by name, phone or email domain
                     </p>
                 </div>
-                <Button asChild>
+                <Button asChild className="w-full sm:w-auto">
                     <Link to={{ pathname: '/contacts/new', search }}>
                         <Plus className="size-4" aria-hidden />
                         New contact

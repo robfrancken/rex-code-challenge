@@ -65,9 +65,9 @@ function ContactDetail({ id }: { id: string }) {
                 </Link>{' '}
                 › {contact.name}
             </nav>
-            <Card className="flex-row items-center gap-4 p-[18px]">
+            <Card className="flex-row flex-wrap items-center gap-4 p-[18px]">
                 <ContactAvatar id={contact.id} name={contact.name} size="lg" />
-                <div className="flex-1">
+                <div className="min-w-0 flex-1 basis-40">
                     <h1 className="text-[22px] font-semibold tracking-tight">{contact.name}</h1>
                     {contact.updated_at && (
                         <div className="text-muted-foreground text-xs">
@@ -94,7 +94,7 @@ function ContactDetail({ id }: { id: string }) {
                 </Button>
             </Card>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-[1.1fr_1fr]">
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-[1.1fr_1fr]">
                 <Card className="gap-0 py-0">
                     <h2 className="flex items-center gap-2 px-4 pt-3.5 text-sm font-semibold">
                         <Phone className="text-muted-foreground size-4" aria-hidden />
