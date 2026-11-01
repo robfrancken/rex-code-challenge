@@ -7,6 +7,8 @@
     <testsuites>
         <testsuite name="App">
             <directory suffix="Test.php">app</directory>
+            <directory suffix="Test.php">routes</directory>
+            <directory suffix="Test.php">database/seeders</directory>
         </testsuite>
         <testsuite name="Arch">
             <directory>tests/Arch</directory>
@@ -15,9 +17,13 @@
     <source>
         <include>
             <directory>app</directory>
+            <directory>routes</directory>
+            <directory>database/seeders</directory>
         </include>
         <exclude>
             <directory suffix="Test.php">app</directory>
+            <directory suffix="Test.php">routes</directory>
+            <directory suffix="Test.php">database/seeders</directory>
         </exclude>
     </source>
     <php>

@@ -6,7 +6,7 @@ namespace App\Modules\Contacts\Application\Assemblers;
 
 use App\Modules\Contacts\Application\DTOs\UpsertContactData;
 use App\Modules\Contacts\Application\Validation\ContactValidator;
-use Illuminate\Support\Str;
+use App\Modules\Contacts\Domain\ValueObjects\ContactId;
 use Illuminate\Validation\ValidationException;
 
 final readonly class ContactDataFromCli
@@ -26,7 +26,7 @@ final readonly class ContactDataFromCli
         array $phones,
     ): UpsertContactData {
         return UpsertContactData::fromValidated($this->validator->validate([
-            'id' => $id ?? (string) Str::uuid(),
+            'id' => $id ?? ContactId::generate()->value,
             'name' => $name,
             'emails' => $emails,
             'phones' => $phones,

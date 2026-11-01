@@ -29,3 +29,9 @@ it('trims the name', function (): void {
 it('throws a validation exception for invalid input', function (): void {
     app(ContactDataFromCli::class)->assemble(null, 'Jane', ['bad'], ['+61412345678']);
 })->throws(ValidationException::class);
+
+it('generates a lowercase id', function (): void {
+    $data = app(ContactDataFromCli::class)->assemble(null, 'Jane', ['jane@example.com'], ['+61412345678']);
+
+    expect($data->id->value)->toBe(strtolower($data->id->value));
+});

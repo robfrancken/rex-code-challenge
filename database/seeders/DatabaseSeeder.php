@@ -19,5 +19,7 @@ class DatabaseSeeder extends Seeder
             'name' => 'Demo User',
             'email' => 'demo@example.com',
         ]);
+
+        $this->call(ContactSeeder::class);
     }
 }

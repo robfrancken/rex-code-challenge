@@ -14,7 +14,7 @@ use Illuminate\Validation\ValidationException;
 use Pest\Expectation;
 use Tests\TestCase;
 
-pest()->extend(TestCase::class)->in('../app', 'Arch');
+pest()->extend(TestCase::class)->in('../app', '../routes', '../database/seeders', 'Arch');
 
 /**
  * Asserts that the closure under test throws a ValidationException with an error on $key,

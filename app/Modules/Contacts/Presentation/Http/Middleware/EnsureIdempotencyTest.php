@@ -138,3 +138,28 @@ it('never replays a stored Set-Cookie header', function (): void {
     expect(collect($replay->headers->getCookies())->map->getName()->all())->not->toContain('probe')
         ->and($replay->headers->has('X-Internal'))->toBeFalse();
 });
+
+it('replays a stored entry that has no headers key', function (): void {
+    $gateway = bindGateway(CallOutcome::Answered);
+    $id = contactWithPhones('+61412345678');
+    $headers = ['Idempotency-Key' => 'legacy'];
+
+    $first = $this->postJson(route('contacts.calls.store', $id), [], $headers)->assertOk();
+
+    $cacheKey = sprintf(
+        'idempotency:%s:%s:%s',
+        auth()->id(),
+        'contacts.calls.store',
+        hash('sha256', 'legacy'),
+    );
+    $stored = Cache::get($cacheKey);
+    unset($stored['headers']);
+    Cache::put($cacheKey, $stored);
+
+    $second = $this->postJson(route('contacts.calls.store', $id), [], $headers)
+        ->assertOk()
+        ->assertHeader('Idempotency-Replayed', 'true');
+
+    expect($second->getContent())->toBe($first->getContent())
+        ->and($gateway->dialled)->toHaveCount(1);
+});

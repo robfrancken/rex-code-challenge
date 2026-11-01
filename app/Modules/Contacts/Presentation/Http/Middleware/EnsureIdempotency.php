@@ -81,7 +81,7 @@ final class EnsureIdempotency
         string $cacheKey,
         string $fingerprint,
     ): Response {
-        /** @var array{fingerprint: string, status: int, body: string, headers: array<string, string>}|null $stored */
+        /** @var array{fingerprint: string, status: int, body: string, headers?: array<string, string>}|null $stored */
         $stored = Cache::get($cacheKey);
 
         if ($stored !== null) {
@@ -90,7 +90,7 @@ final class EnsureIdempotency
             }
 
             return response($stored['body'], $stored['status'], [
-                ...$stored['headers'],
+                ...($stored['headers'] ?? []),
                 'Idempotency-Replayed' => 'true',
             ]);
         }
